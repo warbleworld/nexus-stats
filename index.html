@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Nexus Roster | Gender Distribution</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	<main class="shell">
+		<header class="masthead">
+			<div class="brand">
+				<span class="brand-mark" aria-hidden="true"></span>
+				<span>Nexus Roster</span>
+			</div>
+			<div class="edition">Distribution archive<br>78 entrants catalogued</div>
+		</header>
+
+		<section class="intro" aria-labelledby="page-title">
+			<div>
+				<p class="eyebrow">Roster intelligence / gender study</p>
+				<h1 id="page-title">Who enters<br>the Nexus?</h1>
+			</div>
+			<p class="intro-copy">Explore the gender balance across every event and season. Filter the archive to uncover how each roster changes from one gathering to the next.</p>
+		</section>
+
+		<section class="controls" aria-label="Dashboard filters">
+			<div class="field">
+				<label for="event-filter">Event</label>
+				<div class="select-wrap">
+					<select id="event-filter">
+						<option value="all">All events</option>
+					</select>
+				</div>
+			</div>
+			<div class="field">
+				<label for="season-filter">Season</label>
+				<div class="select-wrap">
+					<select id="season-filter" disabled>
+						<option value="all">All seasons</option>
+					</select>
+				</div>
+			</div>
+			<button class="reset-button" type="button" title="Reset filters" aria-label="Reset filters">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
+					<path d="M3 3v5h5"></path>
+				</svg>
+			</button>
+		</section>
+
+		<div id="error-container" role="alert"></div>
+
+		<section class="dashboard-grid" aria-live="polite">
+			<article class="panel distribution-panel">
+				<header class="panel-header">
+					<div>
+						<p class="panel-kicker">Current selection</p>
+						<h2>Distribution</h2>
+					</div>
+					<span class="scope-badge" id="scope-badge">All data</span>
+				</header>
+				<div class="distribution-body">
+					<svg id="donut-chart" role="img" aria-label="Donut chart showing gender distribution"></svg>
+					<div class="metrics" id="metrics"></div>
+				</div>
+			</article>
+
+			<article class="panel roster-panel">
+				<header class="panel-header">
+					<div>
+						<p class="panel-kicker">Every dot is one entrant</p>
+						<h2>Roster field</h2>
+					</div>
+					<div class="roster-legend" aria-label="Gender color legend"></div>
+				</header>
+				<svg id="roster-chart" role="img" aria-label="Dot field showing every person in the selected roster"></svg>
+				<div class="detail-strip" id="detail-strip">
+					<div>
+						<div class="detail-name">Hover or tap a dot</div>
+						<div class="detail-source">Inspect an entrant</div>
+					</div>
+					<div class="detail-meta">—</div>
+				</div>
+			</article>
+
+			<article class="panel trend-panel">
+				<header class="panel-header">
+					<div>
+						<p class="panel-kicker">Composition</p>
+						<h2>Season by season</h2>
+					</div>
+					<p class="chart-note">Each bar compares the percentage makeup of an event-season roster.</p>
+				</header>
+				<svg id="trend-chart" role="img" aria-label="Stacked bar chart comparing gender distribution by event and season"></svg>
+			</article>
+		</section>
+	</main>
+  
+  <footer class="footer">
+    <span>&copy; 2026 The Roost</span>
+  </footer>
+
+	<div class="tooltip" id="tooltip" role="tooltip"></div>
+
+	<script src="d3.v7.min.js"></script>
+	<script src="app.js"></script>
+</body>
+</html>
