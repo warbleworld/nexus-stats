@@ -78,7 +78,10 @@ function trendData() {
 // Tooltip
 // ─────────────────────────────────────────────
 
+let tooltipAnchor = null;
+
 function showTooltip(event, title, detail) {
+	tooltipAnchor = event.currentTarget;
 	tooltip.text("");
 	tooltip.append("strong").text(title);
 	tooltip.append("span").text(detail);
@@ -93,8 +96,15 @@ function moveTooltip(event) {
 }
 
 function hideTooltip() {
+	tooltipAnchor = null;
 	tooltip.classed("is-visible", false);
 }
+
+document.addEventListener("pointerdown", event => {
+	if (tooltipAnchor && !tooltipAnchor.contains(event.target)) hideTooltip();
+}, true);
+
+window.addEventListener("scroll", hideTooltip, { capture: true, passive: true });
 
 function barTransform({ x, y, width, height }) {
 	return `translate(${x}px,${y}px) scale(${width},${height})`;
