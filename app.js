@@ -680,17 +680,6 @@ function updateTrend(animate = true, measuredWidth = trendSvg.node().clientWidth
 		.attr("text-anchor", isCompact ? "end" : "middle")
 		.attr("dx",          isCompact && !isDense ? "-0.5em" : 0)
 		.attr("dy",          isCompact ? "0.4em" : "0.9em");
-
-	// Guide lines
-	trendSvg.selectAll("line.guide")
-		.data([0.5, 1])
-		.join("line")
-		.attr("class", "guide")
-		.attr("x1", margin.left).attr("x2", width - margin.right)
-		.attr("y1", v => y(v)).attr("y2", v => y(v))
-		.attr("stroke", "rgba(23, 33, 31, 0.1)")
-		.attr("stroke-dasharray", v => v === 0.5 ? "3 5" : null)
-		.lower();
 }
 
 // ─────────────────────────────────────────────
