@@ -205,18 +205,26 @@ select:disabled {
 	color: var(--paper);
 	background: var(--ink);
 	cursor: pointer;
-	transition: transform 180ms ease, background 180ms ease;
+	transition: background 180ms ease, box-shadow 100ms ease;
 }
 
 .reset-button:hover {
 	background: #2d3b38;
-	transform: translateY(-2px);
+}
+
+.reset-button:active {
+	background: #101816;
 }
 
 .reset-button svg {
 	width: 18px;
 	height: 18px;
 	vertical-align: middle;
+	transition: transform 100ms ease;
+}
+
+.reset-button:active svg {
+	transform: scale(0.86);
 }
 
 /* ── Dashboard grid ── */
