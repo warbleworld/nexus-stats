@@ -100,11 +100,25 @@ function hideTooltip() {
 	tooltip.classed("is-visible", false);
 }
 
+function dismissTooltip() {
+	const anchor = tooltipAnchor;
+	hideTooltip();
+	if (!anchor?.matches("circle.person-node")) return;
+
+	d3.select(anchor)
+		.interrupt()
+		.transition().duration(140)
+		.attr("r", anchor._restingRadius)
+		.attr("stroke", "white");
+}
+
 document.addEventListener("pointerdown", event => {
-	if (tooltipAnchor && !tooltipAnchor.contains(event.target)) hideTooltip();
+	if (tooltipAnchor && !tooltipAnchor.contains(event.target)) {
+		dismissTooltip();
+	}
 }, true);
 
-window.addEventListener("scroll", hideTooltip, { capture: true, passive: true });
+window.addEventListener("scroll", dismissTooltip, { capture: true, passive: true });
 
 function barTransform({ x, y, width, height }) {
 	return `translate(${x}px,${y}px) scale(${width},${height})`;
@@ -166,7 +180,7 @@ function applyFilters() {
 
 	const detailPerson = state.filteredData.find(person => person.ID === state.detailPersonId);
 	if (detailPerson) updateDetail(detailPerson);
-	else resetDetail();
+	else if (state.detailPersonId !== null) resetDetail();
 
 	const scopeParts = [
 		state.event  === "all" ? "All events"  : state.event,
@@ -407,6 +421,14 @@ function updateRoster(data, measuredWidth = rosterSvg.node().clientWidth || 680,
 	// Person dots
 	const dotRadius      = isCompact ? 7 : 8;
 	const dotHoverRadius = isCompact ? 10 : 11;
+	const selectPerson = (node, event, person) => {
+		d3.select(node).transition().duration(140).attr("r", dotHoverRadius).attr("stroke", "#17211f");
+		updateDetail(person);
+		showTooltip(event,
+			person.Name,
+			`${person.IsWinner ? "Season winner · " : ""}${person.Source}`
+		);
+	};
 
 	rosterSvg.selectAll("circle.person-node")
 		.data(positions, p => p.ID)
@@ -446,24 +468,22 @@ function updateRoster(data, measuredWidth = rosterSvg.node().clientWidth || 680,
 
 			node._geometry = geometry;
 			node._isExiting = false;
+			node._restingRadius = dotRadius;
 			if (positionChanged || wasExiting) {
 				animateTransform(node, { transform, opacity: "1" }, start, duration);
 			}
 		})
 		.on("mouseenter focus", function(event, person) {
-			d3.select(this).transition().duration(140).attr("r", dotHoverRadius).attr("stroke", "#17211f");
-			updateDetail(person);
-			showTooltip(event,
-				person.Name,
-				`${person.IsWinner ? "Season winner · " : ""}${person.Source}`
-			);
+			selectPerson(this, event, person);
 		})
 		.on("mousemove", moveTooltip)
 		.on("mouseleave blur", function() {
 			d3.select(this).transition().duration(140).attr("r", dotRadius).attr("stroke", "white");
 			hideTooltip();
 		})
-		.on("click", (event, person) => updateDetail(person));
+		.on("click", function(event, person) {
+			selectPerson(this, event, person);
+		});
 
 	// Winner crowns
 	rosterSvg.selectAll("path.winner-crown")
