@@ -214,7 +214,8 @@ select:disabled {
 	}
 }
 
-.reset-button:active {
+.reset-button:active,
+.reset-button.is-pressed {
 	background: #101816;
 }
 
@@ -225,7 +226,8 @@ select:disabled {
 	transition: transform 100ms ease;
 }
 
-.reset-button:active svg {
+.reset-button:active svg,
+.reset-button.is-pressed svg {
 	transform: scale(0.86);
 }
 

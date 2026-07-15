@@ -733,7 +733,13 @@ function initialize(rawData) {
 		applyFilters();
 	});
 
-	d3.select(".reset-button").on("click", () => {
+	const resetButton = d3.select(".reset-button");
+	let resetFeedbackTimer;
+	resetButton.on("click", () => {
+		window.clearTimeout(resetFeedbackTimer);
+		resetButton.classed("is-pressed", true);
+		resetFeedbackTimer = window.setTimeout(() => resetButton.classed("is-pressed", false), 60);
+
 		state.event  = "all";
 		state.season = "all";
 		eventFilter.property("value", "all");
