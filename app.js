@@ -348,13 +348,15 @@ function graphDragBehavior() {
 		.on("start", (event, node) => {
 			event.sourceEvent.stopPropagation();
 			node.wasDragged = false;
-			graphDraggingNodeId = node.id;
-			updateGraphFocus();
 			if (!event.active) graphSimulation.alphaTarget(0.18).restart();
 			node.fx = node.x;
 			node.fy = node.y;
 		})
 		.on("drag", (event, node) => {
+			if (!node.wasDragged) {
+				graphDraggingNodeId = node.id;
+				updateGraphFocus();
+			}
 			node.wasDragged = true;
 			node.fx = event.x;
 			node.fy = event.y;
@@ -365,7 +367,8 @@ function graphDragBehavior() {
 			node.fx = null;
 			node.fy = null;
 			graphDraggingNodeId = null;
-			updateGraphFocus();
+			if (node.wasDragged) updateGraphFocus();
+			else selectGraphNode(node.id);
 			if (!graphHoveredNodeId) hideTooltip();
 		});
 }
@@ -475,13 +478,17 @@ function updateGraph(graphData) {
 		.attr("r", graphNodeRadius)
 		.attr("fill", node => node.isExternal ? "#17211f" : COLORS[node.genderLabel])
 		.call(graphDragBehavior())
-		.on("mouseenter", (event, node) => {
+		.on("pointerenter", (event, node) => {
+			if (event.pointerType === "touch") return;
 			graphHoveredNodeId = node.id;
 			updateGraphFocus();
 			showTooltip(event, node.name, `${node.kills} ${node.kills === 1 ? "kill" : "kills"} · ${graphStatus(node)}`);
 		})
-		.on("mousemove", moveTooltip)
-		.on("mouseleave", () => {
+		.on("pointermove", event => {
+			if (event.pointerType !== "touch") moveTooltip(event);
+		})
+		.on("pointerleave", event => {
+			if (event.pointerType === "touch") return;
 			graphHoveredNodeId = null;
 			updateGraphFocus();
 			if (!graphDraggingNodeId) hideTooltip();
