@@ -414,7 +414,7 @@ function updateRoster(data, measuredWidth = rosterSvg.node().clientWidth || 680,
 		.attr("fill", "#66716e")
 		.attr("font-family", "DM Mono, monospace")
 		.attr("font-size", 9)
-		.text(g => `${g.people.length} PEOPLE`);
+		.text(g => `${g.people.length} ${g.people.length === 1 ? "PERSON" : "PEOPLE"}`);
 
 	// Column dividers
 	rosterSvg.selectAll("line.divider")
@@ -728,14 +728,6 @@ function initialize(rawData) {
 		.attr("class", "event-option")
 		.attr("value", e => e)
 		.text(e => e);
-
-	// Build roster legend
-	d3.select(".roster-legend")
-		.selectAll("span.legend-item")
-		.data(CATEGORIES)
-		.join("span")
-		.attr("class", "legend-item")
-		.html(cat => `<i class="legend-dot" style="--legend-color:${COLORS[cat]}"></i>${cat}`);
 
 	// Filter controls
 	eventFilter.on("change", event => {

@@ -320,10 +320,8 @@ h2 {
 	border-bottom: 0;
 }
 
-.metric::before {
-	position: absolute;
-	top: 22px;
-	left: 0;
+.metric-label::before {
+	flex: 0 0 auto;
 	width: 8px;
 	height: 8px;
 	background: var(--metric-color);
@@ -331,9 +329,14 @@ h2 {
 }
 
 .metric-label {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-left: -20px;
 	color: var(--muted);
 	font-family: "DM Mono", monospace;
 	font-size: 10px;
+	line-height: 1;
 	text-transform: uppercase;
 }
 
@@ -361,28 +364,6 @@ h2 {
 
 .roster-panel {
 	min-height: 100%;
-}
-
-.roster-legend {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 12px;
-	color: var(--muted);
-	font-family: "DM Mono", monospace;
-	font-size: 10px;
-	text-transform: uppercase;
-}
-
-.legend-item {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-}
-
-.legend-dot {
-	width: 7px;
-	height: 7px;
-	background: var(--legend-color);
 }
 
 #roster-chart {
@@ -626,8 +607,12 @@ h2 {
 		border-right: 0;
 	}
 
-	.metric::before {
-		top: 16px;
+	.metric-label {
+		gap: 8px;
+		margin-left: -14px;
+	}
+
+	.metric-label::before {
 		width: 6px;
 		height: 6px;
 	}
@@ -650,10 +635,6 @@ h2 {
 	.chart-note {
 		justify-self: start;
 		text-align: left;
-	}
-
-	.roster-legend {
-		gap: 9px;
 	}
 
 	#roster-chart {
