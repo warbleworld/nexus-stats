@@ -82,6 +82,9 @@ let tooltipAnchor = null;
 let resetTooltipAnchor = null;
 
 function showTooltip(event, title, detail, resetAnchor = null) {
+	if (tooltipAnchor && tooltipAnchor !== event.currentTarget) {
+		resetTooltipAnchor?.();
+	}
 	tooltipAnchor = event.currentTarget;
 	resetTooltipAnchor = resetAnchor;
 	tooltip.text("");
@@ -109,11 +112,11 @@ function dismissTooltip() {
 	resetAnchor?.();
 }
 
-document.addEventListener("pointerdown", event => {
+document.addEventListener("click", event => {
 	if (tooltipAnchor && !tooltipAnchor.contains(event.target)) {
 		dismissTooltip();
 	}
-}, true);
+});
 
 window.addEventListener("scroll", dismissTooltip, { capture: true, passive: true });
 
