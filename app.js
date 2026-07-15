@@ -289,14 +289,6 @@ function updateDonut(data) {
 			selectSegment(this, event, d);
 		});
 
-	// Center decoration
-	root.selectAll("circle.center-ring").data([null]).join("circle")
-		.attr("class", "center-ring")
-		.attr("r", 72)
-		.attr("fill", "none")
-		.attr("stroke", "rgba(23, 33, 31, 0.08)")
-		.attr("stroke-dasharray", "2 5");
-
 	// Total count
 	root.selectAll("text.total-value").data([data.length]).join("text")
 		.attr("class", "total-value")
