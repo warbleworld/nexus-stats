@@ -79,9 +79,11 @@ function trendData() {
 // ─────────────────────────────────────────────
 
 let tooltipAnchor = null;
+let resetTooltipAnchor = null;
 
-function showTooltip(event, title, detail) {
+function showTooltip(event, title, detail, resetAnchor = null) {
 	tooltipAnchor = event.currentTarget;
+	resetTooltipAnchor = resetAnchor;
 	tooltip.text("");
 	tooltip.append("strong").text(title);
 	tooltip.append("span").text(detail);
@@ -97,19 +99,14 @@ function moveTooltip(event) {
 
 function hideTooltip() {
 	tooltipAnchor = null;
+	resetTooltipAnchor = null;
 	tooltip.classed("is-visible", false);
 }
 
 function dismissTooltip() {
-	const anchor = tooltipAnchor;
+	const resetAnchor = resetTooltipAnchor;
 	hideTooltip();
-	if (!anchor?.matches("circle.person-node")) return;
-
-	d3.select(anchor)
-		.interrupt()
-		.transition().duration(140)
-		.attr("r", anchor._restingRadius)
-		.attr("stroke", "white");
+	resetAnchor?.();
 }
 
 document.addEventListener("pointerdown", event => {
@@ -242,6 +239,17 @@ function updateDonut(data) {
 	const root = donutSvg.selectAll("g.chart-root").data([null]).join("g")
 		.attr("class", "chart-root")
 		.attr("transform", `translate(${width / 2},${width / 2})`);
+	const selectSegment = (node, event, d) => {
+		const resetSegment = () => {
+			d3.select(node).interrupt().transition().duration(180).attr("d", arc(d));
+		};
+		d3.select(node).interrupt().transition().duration(180).attr("d", hoverArc(d));
+		showTooltip(event,
+			`${d.data.category}: ${d.data.count}`,
+			`${d3.format(".1%")(d.data.percent)} of this roster`,
+			resetSegment
+		);
+	};
 
 	// Segments
 	root.selectAll("path.donut-segment")
@@ -267,16 +275,15 @@ function updateDonut(data) {
 			exit => exit.remove()
 		)
 		.on("mouseenter", function(event, d) {
-			d3.select(this).interrupt().transition().duration(180).attr("d", hoverArc(d));
-			showTooltip(event,
-				`${d.data.category}: ${d.data.count}`,
-				`${d3.format(".1%")(d.data.percent)} of this roster`
-			);
+			selectSegment(this, event, d);
 		})
 		.on("mousemove",  moveTooltip)
 		.on("mouseleave", function(event, d) {
 			d3.select(this).interrupt().transition().duration(180).attr("d", arc(d));
 			hideTooltip();
+		})
+		.on("click", function(event, d) {
+			selectSegment(this, event, d);
 		});
 
 	// Center decoration
@@ -422,11 +429,19 @@ function updateRoster(data, measuredWidth = rosterSvg.node().clientWidth || 680,
 	const dotRadius      = isCompact ? 7 : 8;
 	const dotHoverRadius = isCompact ? 10 : 11;
 	const selectPerson = (node, event, person) => {
+		const resetPerson = () => {
+			d3.select(node)
+				.interrupt()
+				.transition().duration(140)
+				.attr("r", node._restingRadius)
+				.attr("stroke", "white");
+		};
 		d3.select(node).transition().duration(140).attr("r", dotHoverRadius).attr("stroke", "#17211f");
 		updateDetail(person);
 		showTooltip(event,
 			person.Name,
-			`${person.IsWinner ? "Season winner · " : ""}${person.Source}`
+			`${person.IsWinner ? "Season winner · " : ""}${person.Source}`,
+			resetPerson
 		);
 	};
 
@@ -666,7 +681,13 @@ function updateTrend(animate = true, measuredWidth = trendSvg.node().clientWidth
 			);
 		})
 		.on("mousemove",  moveTooltip)
-		.on("mouseleave", hideTooltip);
+		.on("mouseleave", hideTooltip)
+		.on("click", function(event, segment) {
+			showTooltip(event,
+				`${segment.category}: ${d3.format(".1%")(segment.end - segment.start)}`,
+				segment.label
+			);
+		});
 
 	// X axis
 	const axisGroup = trendSvg.selectAll("g.axis").data([null]).join("g")
