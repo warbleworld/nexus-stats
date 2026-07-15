@@ -15,16 +15,27 @@ const TRANSITION_DURATION        = REDUCED_MOTION ? 0 : 560;
 const ROSTER_TRANSITION_DURATION = REDUCED_MOTION ? 0 : 280;
 const TRANSITION_EASING          = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 
+const GRAPH_FORCE = {
+	charge:       -82,
+	center:       0.055,
+	linkDistance: 92,
+	linkStrength: 0.36
+};
+
 // ─────────────────────────────────────────────
 // Application state
 // ─────────────────────────────────────────────
 
 const state = {
 	allData:      [],
+	logData:      [],
 	filteredData: [],
 	event:        "all",
 	season:       "all",
-	detailPersonId: null
+	detailPersonId: null,
+	graphData:    { nodes: [], links: [], errors: [] },
+	graphNodeId:  null,
+	activeView:   "graph"
 };
 
 // ─────────────────────────────────────────────
@@ -37,6 +48,8 @@ const tooltip      = d3.select("#tooltip");
 const donutSvg     = d3.select("#donut-chart").attr("viewBox", "0 0 360 360");
 const rosterSvg    = d3.select("#roster-chart");
 const trendSvg     = d3.select("#trend-chart");
+const graphSvg     = d3.select("#graph-chart");
+const graphStage   = d3.select("#graph-stage");
 
 // ─────────────────────────────────────────────
 // Utilities
@@ -72,6 +85,473 @@ function trendData() {
 			};
 		})
 		.sort((a, b) => d3.ascending(a.label, b.label));
+}
+
+function entrantLookupKey(event, season, name) {
+	return `${event}\u0000${season}\u0000${name}`;
+}
+
+function deriveGraphData(entrants, logs) {
+	const nodes = entrants.map(person => ({
+		id:           `entrant-${person.ID}`,
+		personId:     person.ID,
+		name:         person.Name,
+		mediaSource:  person.Source,
+		event:        person.Event,
+		season:       person.Season,
+		genderLabel:  person.GenderLabel,
+		isWinner:     person.IsWinner,
+		isExternal:   false,
+		kills:        0,
+		eliminations: 0,
+		deaths:       0,
+		degree:       0
+	}));
+	const nodesById = new Map(nodes.map(node => [node.id, node]));
+	const entrantsByScope = new Map(nodes.map(node => [
+		entrantLookupKey(node.event, node.season, node.name),
+		node
+	]));
+	const links = [];
+	const errors = [];
+
+	const findEntrant = (log, name) => entrantsByScope.get(
+		entrantLookupKey(log.Event, log.Season, name)
+	);
+
+	logs.forEach(log => {
+		if (log.Type === "Death") {
+			const entrant = findEntrant(log, log.Source);
+			if (entrant) entrant.deaths += 1;
+			else errors.push(`Log ${log.ID}: unable to resolve ${log.Source}`);
+			return;
+		}
+
+		if (log.Type !== "Kill") return;
+
+		const target = findEntrant(log, log.Target);
+		if (!target) {
+			errors.push(`Log ${log.ID}: unable to resolve target ${log.Target || "(empty)"}`);
+			return;
+		}
+
+		let source = findEntrant(log, log.Source);
+		if (!source) {
+			const sourceId = `external-${log.Source}`;
+			source = nodesById.get(sourceId);
+			if (!source) {
+				source = {
+					id: sourceId,
+					personId: null,
+					name: log.Source,
+					mediaSource: "External actor",
+					event: log.Event,
+					season: null,
+					genderLabel: null,
+					isWinner: false,
+					isExternal: true,
+					kills: 0,
+					eliminations: 0,
+					deaths: 0,
+					degree: 0
+				};
+				nodes.push(source);
+				nodesById.set(sourceId, source);
+			}
+		}
+
+		source.kills += 1;
+		source.degree += 1;
+		target.eliminations += 1;
+		target.degree += 1;
+		links.push({
+			id:     `log-${log.ID}`,
+			source: source.id,
+			target: target.id,
+			event:  log.Event,
+			season: log.Season
+		});
+	});
+
+	return { nodes, links, errors };
+}
+
+// ─────────────────────────────────────────────
+// Elimination graph
+// ─────────────────────────────────────────────
+
+let graphSimulation = null;
+let graphZoom = null;
+let graphLayers = null;
+let graphWidth = 0;
+let graphHeight = 0;
+let graphHoveredNodeId = null;
+let graphDraggingNodeId = null;
+const graphPositions = new Map();
+
+function graphNodeRadius(node) {
+	return 6.5 + Math.min(Math.sqrt(node.kills) * 3.2, 8);
+}
+
+function graphNodeId(value) {
+	return typeof value === "object" ? value.id : value;
+}
+
+function graphStatus(node) {
+	if (node.deaths) return "Self-eliminated";
+	if (node.eliminations) return "Eliminated";
+	return "No elimination recorded";
+}
+
+function graphLinkGeometry(link) {
+	const source = link.source;
+	const target = link.target;
+	const dx = target.x - source.x;
+	const dy = target.y - source.y;
+	const distance = Math.hypot(dx, dy) || 1;
+	const sourceOffset = graphNodeRadius(source) + 2;
+	const targetOffset = graphNodeRadius(target) + 4;
+	return {
+		x1: source.x + dx / distance * sourceOffset,
+		y1: source.y + dy / distance * sourceOffset,
+		x2: target.x - dx / distance * targetOffset,
+		y2: target.y - dy / distance * targetOffset
+	};
+}
+
+function ensureGraphScene() {
+	if (graphLayers) return;
+
+	const defs = graphSvg.append("defs");
+	defs.append("marker")
+		.attr("id", "graph-arrow")
+		.attr("viewBox", "0 -4 8 8")
+		.attr("refX", 5)
+		.attr("refY", 0)
+		.attr("markerWidth", 7)
+		.attr("markerHeight", 7)
+		.attr("orient", "auto")
+		.attr("markerUnits", "userSpaceOnUse")
+		.append("path")
+		.attr("d", "M0,-3.5L8,0L0,3.5Z")
+		.attr("fill", "#17211f");
+
+	const background = graphSvg.append("rect")
+		.attr("class", "graph-background")
+		.attr("fill", "transparent");
+	const viewport = graphSvg.append("g").attr("class", "graph-viewport");
+	graphLayers = {
+		background,
+		viewport,
+		links:   viewport.append("g").attr("class", "graph-links"),
+		deaths:  viewport.append("g").attr("class", "graph-death-rings"),
+		winners: viewport.append("g").attr("class", "graph-winner-rings"),
+		nodes:   viewport.append("g").attr("class", "graph-nodes"),
+		labels:  viewport.append("g").attr("class", "graph-labels")
+	};
+
+	graphZoom = d3.zoom()
+		.scaleExtent([0.25, 4])
+		.on("zoom", event => {
+			viewport.attr("transform", event.transform);
+			updateGraphLabelVisibility(event.transform.k);
+		});
+	graphSvg.call(graphZoom).on("dblclick.zoom", null);
+	graphSvg.on("click", event => {
+		if (event.target === graphSvg.node() || event.target === background.node()) {
+			selectGraphNode(null);
+		}
+	});
+
+	d3.select("#graph-zoom-in").on("click", () => {
+		graphSvg.transition().duration(220).call(graphZoom.scaleBy, 1.3);
+	});
+	d3.select("#graph-zoom-out").on("click", () => {
+		graphSvg.transition().duration(220).call(graphZoom.scaleBy, 1 / 1.3);
+	});
+	d3.select("#graph-fit").on("click", () => fitGraph(TRANSITION_DURATION));
+}
+
+function updateGraphLabelVisibility(zoomScale = 1) {
+	if (!graphLayers) return;
+	graphLayers.labels.selectAll("text")
+		.classed("is-label-muted", node => (
+			zoomScale < 1.1 &&
+			node.degree === 0 &&
+			node.id !== state.graphNodeId &&
+			node.id !== graphDraggingNodeId &&
+			node.id !== graphHoveredNodeId
+		));
+}
+
+function updateGraphFocus() {
+	if (!graphLayers) return;
+	const activeId = graphDraggingNodeId || graphHoveredNodeId || state.graphNodeId;
+	const relatedNodes = new Set(activeId ? [activeId] : []);
+
+	if (activeId) {
+		state.graphData.links.forEach(link => {
+			const sourceId = graphNodeId(link.source);
+			const targetId = graphNodeId(link.target);
+			if (sourceId === activeId || targetId === activeId) {
+				relatedNodes.add(sourceId);
+				relatedNodes.add(targetId);
+			}
+		});
+	}
+
+	graphLayers.links.selectAll("line")
+		.classed("is-related", link => activeId && (
+			graphNodeId(link.source) === activeId || graphNodeId(link.target) === activeId
+		))
+		.classed("is-dimmed", link => activeId && (
+			graphNodeId(link.source) !== activeId && graphNodeId(link.target) !== activeId
+		));
+
+	[graphLayers.nodes, graphLayers.deaths, graphLayers.winners, graphLayers.labels]
+		.forEach(layer => layer.selectAll(".graph-mark")
+			.classed("is-focused", node => node.id === activeId)
+			.classed("is-dimmed", node => activeId && !relatedNodes.has(node.id))
+		);
+
+	updateGraphLabelVisibility(d3.zoomTransform(graphSvg.node()).k);
+}
+
+function resetGraphDetail() {
+	const detail = d3.select("#graph-detail");
+	detail.select(".graph-detail-name").text("Select an entrant");
+	detail.select(".graph-detail-source").text("Inspect their elimination record");
+	detail.select(".graph-detail-meta").text("—");
+}
+
+function updateGraphDetail(node) {
+	const detail = d3.select("#graph-detail");
+	const titleParts = [node.name];
+	if (node.isWinner) titleParts.push("Season winner");
+	detail.select(".graph-detail-name").text(titleParts.join(" · "));
+	detail.select(".graph-detail-source").text(node.mediaSource);
+	detail.select(".graph-detail-meta").text(
+		`${node.kills} ${node.kills === 1 ? "kill" : "kills"} · ${graphStatus(node)}`
+	);
+}
+
+function selectGraphNode(nodeId) {
+	state.graphNodeId = nodeId;
+	const node = state.graphData.nodes.find(candidate => candidate.id === nodeId);
+	if (node) updateGraphDetail(node);
+	else resetGraphDetail();
+	updateGraphFocus();
+}
+
+function graphDragBehavior() {
+	return d3.drag()
+		.on("start", (event, node) => {
+			event.sourceEvent.stopPropagation();
+			node.wasDragged = false;
+			graphDraggingNodeId = node.id;
+			updateGraphFocus();
+			if (!event.active) graphSimulation.alphaTarget(0.18).restart();
+			node.fx = node.x;
+			node.fy = node.y;
+		})
+		.on("drag", (event, node) => {
+			node.wasDragged = true;
+			node.fx = event.x;
+			node.fy = event.y;
+			moveTooltip(event.sourceEvent);
+		})
+		.on("end", (event, node) => {
+			if (!event.active) graphSimulation.alphaTarget(0);
+			node.fx = null;
+			node.fy = null;
+			graphDraggingNodeId = null;
+			updateGraphFocus();
+			if (!graphHoveredNodeId) hideTooltip();
+		});
+}
+
+function graphTicked() {
+	if (!graphLayers) return;
+	graphLayers.links.selectAll("line").each(function(link) {
+		const geometry = graphLinkGeometry(link);
+		d3.select(this)
+			.attr("x1", geometry.x1)
+			.attr("y1", geometry.y1)
+			.attr("x2", geometry.x2)
+			.attr("y2", geometry.y2);
+	});
+	graphLayers.nodes.selectAll("circle")
+		.attr("cx", node => node.x)
+		.attr("cy", node => node.y);
+	graphLayers.deaths.selectAll("circle")
+		.attr("cx", node => node.x)
+		.attr("cy", node => node.y);
+	graphLayers.winners.selectAll("circle")
+		.attr("cx", node => node.x)
+		.attr("cy", node => node.y);
+	graphLayers.labels.selectAll("text")
+		.attr("x", node => node.x + graphNodeRadius(node) + 6)
+		.attr("y", node => node.y + 3);
+
+	state.graphData.nodes.forEach(node => {
+		graphPositions.set(node.id, { x: node.x, y: node.y, vx: node.vx, vy: node.vy });
+	});
+}
+
+function fitGraph(duration = 0) {
+	const nodes = state.graphData.nodes.filter(node => Number.isFinite(node.x) && Number.isFinite(node.y));
+	if (!nodes.length || !graphWidth || !graphHeight || !graphZoom) return;
+	const xExtent = d3.extent(nodes, node => node.x);
+	const yExtent = d3.extent(nodes, node => node.y);
+	const contentWidth = Math.max(xExtent[1] - xExtent[0] + 80, 120);
+	const contentHeight = Math.max(yExtent[1] - yExtent[0] + 80, 120);
+	const scale = Math.max(0.25, Math.min(2, 0.9 / Math.max(
+		contentWidth / graphWidth,
+		contentHeight / graphHeight
+	)));
+	const centerX = (xExtent[0] + xExtent[1]) / 2;
+	const centerY = (yExtent[0] + yExtent[1]) / 2;
+	const transform = d3.zoomIdentity
+		.translate(graphWidth / 2, graphHeight / 2)
+		.scale(scale)
+		.translate(-centerX, -centerY);
+	const target = duration ? graphSvg.transition().duration(duration) : graphSvg;
+	target.call(graphZoom.transform, transform);
+}
+
+function resizeGraph() {
+	if (!graphLayers) return;
+	graphWidth = graphStage.node().clientWidth || 1100;
+	graphHeight = graphStage.node().clientHeight || 620;
+	graphSvg.attr("viewBox", `0 0 ${graphWidth} ${graphHeight}`);
+	graphLayers.background.attr("width", graphWidth).attr("height", graphHeight);
+
+	if (graphSimulation) {
+		graphSimulation
+			.force("x", d3.forceX(graphWidth / 2).strength(GRAPH_FORCE.center))
+			.force("y", d3.forceY(graphHeight / 2).strength(GRAPH_FORCE.center));
+		if (state.activeView === "graph") graphSimulation.alpha(0.25).restart();
+	}
+}
+
+function updateGraph(graphData) {
+	ensureGraphScene();
+	resizeGraph();
+	const previousNodeIds = new Set(graphSimulation?.nodes().map(node => node.id) || []);
+
+	graphData.nodes.forEach((node, index) => {
+		const saved = graphPositions.get(node.id);
+		if (saved) Object.assign(node, saved);
+		else {
+			const angle = index * 2.399963229728653;
+			const radius = Math.sqrt(index + 1) * 18;
+			node.x = graphWidth / 2 + Math.cos(angle) * radius;
+			node.y = graphHeight / 2 + Math.sin(angle) * radius;
+		}
+	});
+
+	graphLayers.links.selectAll("line.graph-link")
+		.data(graphData.links, link => link.id)
+		.join("line")
+		.attr("class", "graph-link graph-mark")
+		.attr("marker-end", "url(#graph-arrow)");
+
+	graphLayers.deaths.selectAll("circle.graph-death-ring")
+		.data(graphData.nodes.filter(node => node.deaths), node => node.id)
+		.join("circle")
+		.attr("class", "graph-death-ring graph-mark")
+		.attr("r", node => graphNodeRadius(node) + 5);
+
+	graphLayers.winners.selectAll("circle.graph-winner-ring")
+		.data(graphData.nodes.filter(node => node.isWinner), node => node.id)
+		.join("circle")
+		.attr("class", "graph-winner-ring graph-mark")
+		.attr("r", node => graphNodeRadius(node) + (node.deaths ? 9 : 5));
+
+	graphLayers.nodes.selectAll("circle.graph-node")
+		.data(graphData.nodes, node => node.id)
+		.join("circle")
+		.attr("class", node => `graph-node graph-mark${node.isExternal ? " is-external" : ""}`)
+		.attr("r", graphNodeRadius)
+		.attr("fill", node => node.isExternal ? "#17211f" : COLORS[node.genderLabel])
+		.call(graphDragBehavior())
+		.on("mouseenter", (event, node) => {
+			graphHoveredNodeId = node.id;
+			updateGraphFocus();
+			showTooltip(event, node.name, `${node.kills} ${node.kills === 1 ? "kill" : "kills"} · ${graphStatus(node)}`);
+		})
+		.on("mousemove", moveTooltip)
+		.on("mouseleave", () => {
+			graphHoveredNodeId = null;
+			updateGraphFocus();
+			if (!graphDraggingNodeId) hideTooltip();
+		})
+		.on("click", (event, node) => {
+			event.stopPropagation();
+			if (node.wasDragged) {
+				node.wasDragged = false;
+				return;
+			}
+			selectGraphNode(node.id);
+		});
+
+	graphLayers.labels.selectAll("text.graph-label")
+		.data(graphData.nodes, node => node.id)
+		.join("text")
+		.attr("class", "graph-label graph-mark")
+		.text(node => node.name);
+
+	if (!graphSimulation) {
+		graphSimulation = d3.forceSimulation().on("tick", graphTicked);
+	}
+	graphSimulation
+		.nodes(graphData.nodes)
+		.force("link", d3.forceLink(graphData.links)
+			.id(node => node.id)
+			.distance(GRAPH_FORCE.linkDistance)
+			.strength(GRAPH_FORCE.linkStrength))
+		.force("charge", d3.forceManyBody().strength(GRAPH_FORCE.charge))
+		.force("x", d3.forceX(graphWidth / 2).strength(GRAPH_FORCE.center))
+		.force("y", d3.forceY(graphHeight / 2).strength(GRAPH_FORCE.center))
+		.force("collision", d3.forceCollide(node => graphNodeRadius(node) + 8).strength(0.9).iterations(2))
+		.alpha(previousNodeIds.size ? 0.72 : 1);
+
+	if (state.activeView === "graph") graphSimulation.restart();
+	else graphSimulation.stop();
+	graphTicked();
+
+	const entrantCount = graphData.nodes.filter(node => !node.isExternal).length;
+	const deathCount = graphData.nodes.filter(node => node.deaths).length;
+	d3.select("#graph-summary").text(
+		`${entrantCount} entrants · ${graphData.links.length} eliminations · ${deathCount} self-eliminations`
+	);
+	const selectedNode = graphData.nodes.find(node => node.id === state.graphNodeId);
+	if (selectedNode) updateGraphDetail(selectedNode);
+	else resetGraphDetail();
+	updateGraphFocus();
+}
+
+function setActiveView(view) {
+	state.activeView = view;
+	d3.select(".eyebrow").text(
+		`Roster intelligence / ${view === "graph" ? "elimination study" : "gender study"}`
+	);
+	d3.selectAll(".view-tab")
+		.classed("is-active", function() { return this.dataset.view === view; })
+		.attr("aria-selected", function() { return this.dataset.view === view ? "true" : "false"; });
+	d3.select("#graph-view").property("hidden", view !== "graph");
+	d3.select("#analytics-view").property("hidden", view !== "analytics");
+
+	if (view === "graph") {
+		requestAnimationFrame(() => {
+			resizeGraph();
+			graphSimulation?.alpha(0.18).restart();
+		});
+	} else {
+		graphSimulation?.stop();
+		updateRoster(state.filteredData, rosterSvg.node().clientWidth || 680, false);
+		updateTrend(false, trendSvg.node().clientWidth || 1000);
+	}
 }
 
 // ─────────────────────────────────────────────
@@ -177,6 +657,16 @@ function applyFilters() {
 		const matchesSeason = state.season === "all" || p.Season === state.season;
 		return matchesEvent && matchesSeason;
 	});
+	const filteredLogs = state.logData.filter(log => {
+		const matchesEvent  = state.event  === "all" || log.Event  === state.event;
+		const matchesSeason = state.season === "all" || log.Season === state.season;
+		return matchesEvent && matchesSeason;
+	});
+	state.graphData = deriveGraphData(state.filteredData, filteredLogs);
+	if (!state.graphData.nodes.some(node => node.id === state.graphNodeId)) {
+		state.graphNodeId = null;
+	}
+	if (state.graphData.errors.length) console.warn(state.graphData.errors.join("\n"));
 
 	const detailPerson = state.filteredData.find(person => person.ID === state.detailPersonId);
 	if (detailPerson) updateDetail(detailPerson);
@@ -194,6 +684,7 @@ function applyFilters() {
 	updateMetrics(state.filteredData);
 	updateRoster(state.filteredData, rosterWidth);
 	updateTrend(true, trendWidth);
+	updateGraph(state.graphData);
 }
 
 // ─────────────────────────────────────────────
@@ -702,14 +1193,20 @@ function updateTrend(animate = true, measuredWidth = trendSvg.node().clientWidth
 // Initialization & event wiring
 // ─────────────────────────────────────────────
 
-function initialize(rawData) {
+function initialize(rawEntrants, rawLogs) {
 	// Parse and normalize CSV rows
-	state.allData = rawData.map(person => ({
+	state.allData = rawEntrants.map(person => ({
 		...person,
+		ID:          Number(person.ID),
 		Season:      Number(person.Season),
 		Placement:   person.Placement ? Number(person.Placement) : null,
 		IsWinner:    Number(person.Placement) === 1,
 		GenderLabel: genderLabel(person.Gender)
+	}));
+	state.logData = rawLogs.map(log => ({
+		...log,
+		ID:     Number(log.ID),
+		Season: Number(log.Season)
 	}));
 
 	// Populate event dropdown
@@ -720,6 +1217,10 @@ function initialize(rawData) {
 		.attr("class", "event-option")
 		.attr("value", e => e)
 		.text(e => e);
+
+	d3.selectAll(".view-tab").on("click", function() {
+		setActiveView(this.dataset.view);
+	});
 
 	// Filter controls
 	eventFilter.on("change", event => {
@@ -754,23 +1255,33 @@ function initialize(rawData) {
 		resizeTimer = window.setTimeout(() => {
 			updateRoster(state.filteredData, rosterSvg.node().clientWidth || 680, false);
 			updateTrend(false, trendSvg.node().clientWidth || 1000);
+			if (state.activeView === "graph") resizeGraph();
 		}, 100);
 	});
 
 	updateSeasonOptions();
 	applyFilters();
+	setActiveView(state.activeView);
+	requestAnimationFrame(() => {
+		graphSimulation.stop().tick(300);
+		graphTicked();
+		fitGraph(0);
+	});
 }
 
 // ─────────────────────────────────────────────
 // Bootstrap
 // ─────────────────────────────────────────────
 
-d3.csv("nexus-stats.csv")
-	.then(initialize)
+Promise.all([
+	d3.csv("nexus-entrants.csv"),
+	d3.csv("nexus-log.csv")
+])
+	.then(([entrants, logs]) => initialize(entrants, logs))
 	.catch(error => {
 		console.error(error);
 		d3.select("#error-container").html(
-			'<div class="error-state"><strong>Unable to load the roster.</strong><br>' +
+			'<div class="error-state"><strong>Unable to load the Nexus archive.</strong><br>' +
 			"Serve this folder through a local web server so the CSV can be read.</div>"
 		);
 	});

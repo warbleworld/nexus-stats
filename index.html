@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Nexus Roster | Gender Distribution</title>
+	<title>Nexus Archive | Roster &amp; Eliminations</title>
 	<link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,17 +11,17 @@
 		<header class="masthead">
 			<div class="brand">
 				<span class="brand-mark" aria-hidden="true"></span>
-				<span>Nexus Roster</span>
+				<span>Nexus Archive</span>
 			</div>
-			<div class="edition">Distribution archive<br>78 entrants catalogued</div>
+			<div class="edition">Competition archive<br>78 entrants catalogued</div>
 		</header>
 
 		<section class="intro" aria-labelledby="page-title">
 			<div>
-				<p class="eyebrow">Roster intelligence / gender study</p>
-				<h1 id="page-title">Who enters<br>the Nexus?</h1>
+				<p class="eyebrow">Roster intelligence / elimination study</p>
+				<h1 id="page-title">Inside<br>the Nexus.</h1>
 			</div>
-			<p class="intro-copy">Explore the gender balance across every event and season. Filter the archive to uncover how each roster changes from one gathering to the next.</p>
+			<p class="intro-copy">Trace every recorded elimination, inspect the competitors behind each connection, and compare how the roster changes from one gathering to the next.</p>
 		</section>
 
 		<section class="controls" aria-label="Dashboard filters">
@@ -51,7 +51,55 @@
 
 		<div id="error-container" role="alert"></div>
 
-		<section class="dashboard-grid" aria-live="polite">
+		<div class="view-tabs" role="tablist" aria-label="Archive view">
+			<button class="view-tab is-active" id="graph-tab" type="button" role="tab" aria-selected="true" aria-controls="graph-view" data-view="graph">Graph</button>
+			<button class="view-tab" id="analytics-tab" type="button" role="tab" aria-selected="false" aria-controls="analytics-view" data-view="analytics">Analytics</button>
+		</div>
+
+		<section class="view-panel" id="graph-view" role="tabpanel" aria-labelledby="graph-tab">
+			<article class="graph-panel">
+				<header class="graph-header">
+					<div>
+						<p class="panel-kicker">Elimination network</p>
+						<h2>Graph view</h2>
+					</div>
+					<p class="graph-summary" id="graph-summary">Loading archive</p>
+				</header>
+				<div class="graph-stage" id="graph-stage">
+					<svg id="graph-chart" role="img" aria-label="Force-directed graph of Nexus eliminations"></svg>
+					<div class="graph-controls" aria-label="Graph zoom controls">
+						<button type="button" id="graph-zoom-in" title="Zoom in" aria-label="Zoom in">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+						</button>
+						<button type="button" id="graph-zoom-out" title="Zoom out" aria-label="Zoom out">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
+						</button>
+						<button type="button" id="graph-fit" title="Fit graph" aria-label="Fit graph">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg>
+						</button>
+					</div>
+				</div>
+				<div class="graph-footer">
+					<div class="graph-legend" aria-label="Graph legend">
+						<span><i class="legend-dot is-female"></i>Female</span>
+						<span><i class="legend-dot is-male"></i>Male</span>
+						<span><i class="legend-dot is-other"></i>Other</span>
+						<span><i class="legend-dot is-external"></i>External</span>
+						<span><i class="legend-ring"></i>Self-eliminated</span>
+					</div>
+					<div class="graph-detail" id="graph-detail">
+						<div>
+							<div class="graph-detail-name">Select an entrant</div>
+							<div class="graph-detail-source">Inspect their elimination record</div>
+						</div>
+						<div class="graph-detail-meta">—</div>
+					</div>
+				</div>
+			</article>
+		</section>
+
+		<section class="view-panel" id="analytics-view" role="tabpanel" aria-labelledby="analytics-tab" hidden>
+		<div class="dashboard-grid" aria-live="polite">
 			<article class="panel distribution-panel">
 				<header class="panel-header">
 					<div>
@@ -93,6 +141,7 @@
 				</header>
 				<svg id="trend-chart" role="img" aria-label="Stacked bar chart comparing gender distribution by event and season"></svg>
 			</article>
+		</div>
 		</section>
 	</main>
   
