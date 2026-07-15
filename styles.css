@@ -208,8 +208,10 @@ select:disabled {
 	transition: background 180ms ease, box-shadow 100ms ease;
 }
 
-.reset-button:hover {
-	background: #2d3b38;
+@media (hover: hover) and (pointer: fine) {
+	.reset-button:hover {
+		background: #2d3b38;
+	}
 }
 
 .reset-button:active {
