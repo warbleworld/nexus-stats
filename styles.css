@@ -374,6 +374,12 @@ select:disabled {
 	stroke-width: 2;
 }
 
+.graph-labels {
+	/* Older Safari rounds glyph advances to whole pixels per frame while
+	   zooming (text-rendering: auto), causing horizontal label jitter. */
+	text-rendering: geometricPrecision;
+}
+
 .graph-label {
 	font-family: "DM Mono", monospace;
 	font-size: 9px;
