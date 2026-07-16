@@ -375,16 +375,23 @@ select:disabled {
 }
 
 .graph-label {
-	fill: var(--ink);
 	font-family: "DM Mono", monospace;
 	font-size: 9px;
 	font-weight: 600;
 	pointer-events: none;
-	paint-order: stroke;
+	transition: opacity 140ms ease;
+}
+
+.graph-label-halo {
+	fill: none;
 	stroke: rgba(244, 241, 234, 0.94);
 	stroke-linejoin: round;
 	stroke-width: 4px;
-	transition: opacity 140ms ease;
+}
+
+.graph-label-text {
+	fill: var(--ink);
+	stroke: none;
 }
 
 .graph-label.is-label-muted {

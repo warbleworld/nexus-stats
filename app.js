@@ -266,7 +266,7 @@ function ensureGraphScene() {
 
 function updateGraphLabelVisibility(zoomScale = 1) {
 	if (!graphLayers) return;
-	graphLayers.labels.selectAll("text")
+	graphLayers.labels.selectAll("g.graph-label")
 		.classed("is-label-muted", node => (
 			zoomScale < 1.1 &&
 			node.degree === 0 &&
@@ -382,9 +382,10 @@ function graphTicked() {
 	graphLayers.winners.selectAll("circle")
 		.attr("cx", node => node.x)
 		.attr("cy", node => node.y);
-	graphLayers.labels.selectAll("text")
-		.attr("x", node => node.x + graphNodeRadius(node) + 6)
-		.attr("y", node => node.y + 3);
+	graphLayers.labels.selectAll("g.graph-label")
+		.attr("transform", node => (
+			`translate(${node.x + graphNodeRadius(node) + 6},${node.y + 3})`
+		));
 
 	state.graphData.nodes.forEach(node => {
 		graphPositions.set(node.id, { x: node.x, y: node.y, vx: node.vx, vy: node.vy });
@@ -487,11 +488,16 @@ function updateGraph(graphData) {
 			selectGraphNode(node.id);
 		});
 
-	graphLayers.labels.selectAll("text.graph-label")
+	const labels = graphLayers.labels.selectAll("g.graph-label")
 		.data(graphData.nodes, node => node.id)
-		.join("text")
-		.attr("class", "graph-label graph-mark")
-		.text(node => node.name);
+		.join(enter => {
+			const label = enter.append("g")
+				.attr("class", "graph-label graph-mark");
+			label.append("text").attr("class", "graph-label-halo");
+			label.append("text").attr("class", "graph-label-text");
+			return label;
+		});
+	labels.selectAll("text").text(node => node.name);
 
 	if (!graphSimulation) {
 		graphSimulation = d3.forceSimulation().on("tick", graphTicked);
