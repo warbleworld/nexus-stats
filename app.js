@@ -1281,8 +1281,8 @@ function initialize(rawEntrants, rawLogs) {
 // ─────────────────────────────────────────────
 
 Promise.all([
-	d3.csv("nexus-entrants.csv"),
-	d3.csv("nexus-log.csv")
+	d3.csv("csv/nexus-entrants.csv"),
+	d3.csv("csv/nexus-log.csv")
 ])
 	.then(([entrants, logs]) => initialize(entrants, logs))
 	.catch(error => {
