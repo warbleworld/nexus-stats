@@ -15,13 +15,6 @@ const TRANSITION_DURATION        = REDUCED_MOTION ? 0 : 560;
 const ROSTER_TRANSITION_DURATION = REDUCED_MOTION ? 0 : 280;
 const TRANSITION_EASING          = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 
-const GRAPH_FORCE = {
-	charge:       -82,
-	center:       0.055,
-	linkDistance: 92,
-	linkStrength: 0.36
-};
-
 // ─────────────────────────────────────────────
 // Application state
 // ─────────────────────────────────────────────
@@ -48,9 +41,7 @@ const tooltip      = d3.select("#tooltip");
 const donutSvg     = d3.select("#donut-chart").attr("viewBox", "0 0 360 360");
 const rosterSvg    = d3.select("#roster-chart");
 const trendSvg     = d3.select("#trend-chart");
-const graphLinkCanvas = d3.select("#graph-link-canvas");
 const graphCanvas  = d3.select("#graph-canvas");
-const graphLabelCanvas = d3.select("#graph-label-canvas");
 const graphStage   = d3.select("#graph-stage");
 
 // ─────────────────────────────────────────────
@@ -89,140 +80,11 @@ function trendData() {
 		.sort((a, b) => d3.ascending(a.label, b.label));
 }
 
-function entrantLookupKey(event, season, name) {
-	return `${event}\u0000${season}\u0000${name}`;
-}
-
-function deriveGraphData(entrants, logs) {
-	const nodes = entrants.map(person => ({
-		id:           `entrant-${person.ID}`,
-		personId:     person.ID,
-		name:         person.Name,
-		mediaSource:  person.Source,
-		event:        person.Event,
-		season:       person.Season,
-		genderLabel:  person.GenderLabel,
-		isWinner:     person.IsWinner,
-		isExternal:   false,
-		kills:        0,
-		eliminations: 0,
-		deaths:       0,
-		degree:       0
-	}));
-	const nodesById = new Map(nodes.map(node => [node.id, node]));
-	const entrantsByScope = new Map(nodes.map(node => [
-		entrantLookupKey(node.event, node.season, node.name),
-		node
-	]));
-	const links = [];
-	const errors = [];
-
-	const findEntrant = (log, name) => entrantsByScope.get(
-		entrantLookupKey(log.Event, log.Season, name)
-	);
-
-	logs.forEach(log => {
-		if (log.Type === "Death") {
-			const entrant = findEntrant(log, log.Source);
-			if (entrant) entrant.deaths += 1;
-			else errors.push(`Log ${log.ID}: unable to resolve ${log.Source}`);
-			return;
-		}
-
-		if (log.Type !== "Kill") return;
-
-		const target = findEntrant(log, log.Target);
-		if (!target) {
-			errors.push(`Log ${log.ID}: unable to resolve target ${log.Target || "(empty)"}`);
-			return;
-		}
-
-		let source = findEntrant(log, log.Source);
-		if (!source) {
-			const sourceId = `external-${log.Source}`;
-			source = nodesById.get(sourceId);
-			if (!source) {
-				source = {
-					id: sourceId,
-					personId: null,
-					name: log.Source,
-					mediaSource: "External actor",
-					event: log.Event,
-					season: null,
-					genderLabel: null,
-					isWinner: false,
-					isExternal: true,
-					kills: 0,
-					eliminations: 0,
-					deaths: 0,
-					degree: 0
-				};
-				nodes.push(source);
-				nodesById.set(sourceId, source);
-			}
-		}
-
-		source.kills += 1;
-		source.degree += 1;
-		target.eliminations += 1;
-		target.degree += 1;
-		links.push({
-			id:     `log-${log.ID}`,
-			source: source.id,
-			target: target.id,
-			event:  log.Event,
-			season: log.Season
-		});
-	});
-
-	return { nodes, links, errors };
-}
+const deriveGraphData = GraphModel.deriveGraphData;
 
 // ─────────────────────────────────────────────
 // Elimination graph
 // ─────────────────────────────────────────────
-
-let graphSimulation = null;
-let graphZoom = null;
-let graphSceneReady = false;
-let graphWidth = 0;
-let graphHeight = 0;
-let graphPixelRatio = 1;
-let graphTransform = d3.zoomIdentity;
-let graphHoveredNodeId = null;
-let graphDraggingNodeId = null;
-let graphActiveNodeId = null;
-let graphRelatedNodeIds = new Set();
-let graphDrawFrame = null;
-let graphLastLinkDraw = 0;
-let graphLastGeometryDraw = 0;
-let graphLastLabelDraw = 0;
-let graphCollisionForce = null;
-let graphCollisionIterations = 2;
-const graphPositions = new Map();
-const graphLinkContext = graphLinkCanvas.node().getContext("2d");
-const graphContext = graphCanvas.node().getContext("2d");
-const graphLabelContext = graphLabelCanvas.node().getContext("2d");
-const graphFocusedColors = new Map();
-
-const GRAPH_DENSE_ELEMENT_COUNT = 400;
-const GRAPH_VERY_DENSE_ELEMENT_COUNT = 1200;
-
-const GRAPH_RENDER_CADENCE = {
-	dense:     { links: 1000 / 20, geometry: 1000 / 45, labels: 1000 / 30 },
-	veryDense: { links: 1000 / 12, geometry: 1000 / 30, labels: 1000 / 15 }
-};
-
-function graphNodeRadius(node) {
-	if (node.graphRadius === undefined) {
-		node.graphRadius = 6.5 + Math.min(Math.sqrt(node.kills) * 3.2, 8);
-	}
-	return node.graphRadius;
-}
-
-function graphNodeId(value) {
-	return typeof value === "object" ? value.id : value;
-}
 
 function graphStatus(node) {
 	if (node.deaths) return "Self-eliminated";
@@ -230,288 +92,10 @@ function graphStatus(node) {
 	return "No elimination recorded";
 }
 
-function graphFocusedColor(color) {
-	if (graphFocusedColors.has(color)) return graphFocusedColors.get(color);
-	const channels = color.match(/[\da-f]{2}/gi).map(channel => (
-		Math.min(255, Math.round(Number.parseInt(channel, 16) * 1.08))
-	));
-	const focused = `rgb(${channels.join(",")})`;
-	graphFocusedColors.set(color, focused);
-	return focused;
-}
-
-function drawGraphLink(link) {
-	const source = link.source;
-	const target = link.target;
-	const dx = target.x - source.x;
-	const dy = target.y - source.y;
-	const distance = Math.hypot(dx, dy) || 1;
-	const directionX = dx / distance;
-	const directionY = dy / distance;
-	const sourceOffset = graphNodeRadius(source) + 2;
-	const targetOffset = graphNodeRadius(target) + 2;
-	const x1 = source.x + directionX * sourceOffset;
-	const y1 = source.y + directionY * sourceOffset;
-	const x2 = target.x - directionX * targetOffset;
-	const y2 = target.y - directionY * targetOffset;
-	const arrowLength = 7;
-	const arrowWidth = 3;
-	const shaftHalfWidth = 0.7;
-	const segmentLength = Math.hypot(x2 - x1, y2 - y1);
-	const safeArrowLength = Math.min(arrowLength, Math.max(segmentLength - 1.5, 0));
-	const safeArrowWidth = Math.min(arrowWidth, Math.max(safeArrowLength * 0.65, shaftHalfWidth));
-	const baseX = x2 - directionX * safeArrowLength;
-	const baseY = y2 - directionY * safeArrowLength;
-	const shaftX = -directionY * shaftHalfWidth;
-	const shaftY = directionX * shaftHalfWidth;
-	const arrowX = -directionY * safeArrowWidth;
-	const arrowY = directionX * safeArrowWidth;
-
-	graphLinkContext.moveTo(x1 + shaftX, y1 + shaftY);
-	graphLinkContext.lineTo(baseX + shaftX, baseY + shaftY);
-	graphLinkContext.lineTo(baseX - shaftX, baseY - shaftY);
-	graphLinkContext.lineTo(x1 - shaftX, y1 - shaftY);
-	graphLinkContext.closePath();
-	graphLinkContext.moveTo(baseX + arrowX, baseY + arrowY);
-	graphLinkContext.lineTo(x2, y2);
-	graphLinkContext.lineTo(baseX - arrowX, baseY - arrowY);
-	graphLinkContext.closePath();
-}
-
-function graphViewportBounds(margin = 0) {
-	return {
-		left:   graphTransform.invertX(-margin),
-		right:  graphTransform.invertX(graphWidth + margin),
-		top:    graphTransform.invertY(-margin),
-		bottom: graphTransform.invertY(graphHeight + margin)
-	};
-}
-
-function graphNodeIsVisible(node, bounds) {
-	return node.x >= bounds.left && node.x <= bounds.right &&
-		node.y >= bounds.top && node.y <= bounds.bottom;
-}
-
-function graphLinkIsVisible(link, bounds) {
-	const source = link.source;
-	const target = link.target;
-	return !(
-		(source.x < bounds.left && target.x < bounds.left) ||
-		(source.x > bounds.right && target.x > bounds.right) ||
-		(source.y < bounds.top && target.y < bounds.top) ||
-		(source.y > bounds.bottom && target.y > bounds.bottom)
-	);
-}
-
-function drawGraphLinks(isRelated, color, opacity, bounds) {
-	graphLinkContext.globalAlpha = opacity;
-	graphLinkContext.fillStyle = color;
-	graphLinkContext.beginPath();
-	for (const link of state.graphData.links) {
-		if (!graphLinkIsVisible(link, bounds)) continue;
-		const related = graphActiveNodeId && (
-			graphNodeId(link.source) === graphActiveNodeId ||
-			graphNodeId(link.target) === graphActiveNodeId
-		);
-		if (Boolean(related) === isRelated) drawGraphLink(link);
-	}
-	graphLinkContext.fill();
-}
-
-function isGraphDense() {
-	return state.graphData.nodes.length + state.graphData.links.length >= GRAPH_DENSE_ELEMENT_COUNT;
-}
-
-function isGraphVeryDense() {
-	return state.graphData.nodes.length + state.graphData.links.length >= GRAPH_VERY_DENSE_ELEMENT_COUNT;
-}
-
-function isGraphMoving() {
-	return Boolean(graphSimulation && graphSimulation.alpha() > graphSimulation.alphaMin());
-}
-
-function prepareGraphContext(context, canvas) {
-	context.setTransform(1, 0, 0, 1, 0, 0);
-	context.clearRect(0, 0, canvas.width, canvas.height);
-	context.setTransform(graphPixelRatio, 0, 0, graphPixelRatio, 0, 0);
-	context.translate(graphTransform.x, graphTransform.y);
-	context.scale(graphTransform.k, graphTransform.k);
-}
-
-function drawGraphLinkLayer() {
-	if (!graphWidth || !graphHeight) return;
-	const canvas = graphLinkCanvas.node();
-	prepareGraphContext(graphLinkContext, canvas);
-	const bounds = graphViewportBounds(32);
-
-	if (graphActiveNodeId) {
-		drawGraphLinks(false, "rgba(23, 33, 31, 0.28)", 0.1, bounds);
-		drawGraphLinks(true, "#17211f", 1, bounds);
-	} else {
-		drawGraphLinks(false, "rgba(23, 33, 31, 0.28)", 1, bounds);
-	}
-	graphLinkContext.globalAlpha = 1;
-}
-
-function drawGraphGeometry() {
-	if (!graphWidth || !graphHeight) return;
-	const canvas = graphCanvas.node();
-	prepareGraphContext(graphContext, canvas);
-	const bounds = graphViewportBounds(32);
-
-	graphContext.lineWidth = 2;
-	graphContext.strokeStyle = "#c64f5f";
-	graphContext.setLineDash([3, 3]);
-	for (const node of state.graphData.nodes) {
-		if (!node.deaths || !graphNodeIsVisible(node, bounds)) continue;
-		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
-		graphContext.beginPath();
-		graphContext.arc(node.x, node.y, graphNodeRadius(node) + 5, 0, Math.PI * 2);
-		graphContext.stroke();
-	}
-
-	graphContext.strokeStyle = COLORS.Other;
-	graphContext.setLineDash([]);
-	for (const node of state.graphData.nodes) {
-		if (!node.isWinner || !graphNodeIsVisible(node, bounds)) continue;
-		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
-		graphContext.beginPath();
-		graphContext.arc(node.x, node.y, graphNodeRadius(node) + (node.deaths ? 9 : 5), 0, Math.PI * 2);
-		graphContext.stroke();
-	}
-
-	for (const node of state.graphData.nodes) {
-		if (!graphNodeIsVisible(node, bounds)) continue;
-		const isFocused = node.id === graphActiveNodeId;
-		const fill = node.isExternal ? "#17211f" : COLORS[node.genderLabel];
-		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
-		graphContext.fillStyle = isFocused ? graphFocusedColor(fill) : fill;
-		graphContext.strokeStyle = node.isExternal ? "#f4f1ea" : "rgba(255, 255, 255, 0.96)";
-		graphContext.lineWidth = isFocused ? 3 : 2;
-		graphContext.beginPath();
-		graphContext.arc(node.x, node.y, graphNodeRadius(node), 0, Math.PI * 2);
-		graphContext.fill();
-		graphContext.stroke();
-	}
-	graphContext.globalAlpha = 1;
-}
-
-function drawGraphLabels() {
-	if (!graphWidth || !graphHeight) return;
-	const canvas = graphLabelCanvas.node();
-	prepareGraphContext(graphLabelContext, canvas);
-	const bounds = graphViewportBounds(220);
-	graphLabelContext.font = '600 9px "DM Mono", monospace';
-	graphLabelContext.textBaseline = "alphabetic";
-	graphLabelContext.lineJoin = "round";
-	graphLabelContext.lineWidth = 4;
-	graphLabelContext.strokeStyle = "rgba(244, 241, 234, 0.94)";
-	graphLabelContext.fillStyle = "#17211f";
-	for (const node of state.graphData.nodes) {
-		if (!graphNodeIsVisible(node, bounds)) continue;
-		const isMuted = graphTransform.k < 1.1 && node.degree === 0 &&
-			node.id !== state.graphNodeId && node.id !== graphDraggingNodeId &&
-			node.id !== graphHoveredNodeId;
-		if (isMuted) continue;
-		graphLabelContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
-		const x = node.x + graphNodeRadius(node) + 6;
-		const y = node.y + 3;
-		graphLabelContext.strokeText(node.name, x, y);
-		graphLabelContext.fillText(node.name, x, y);
-	}
-	graphLabelContext.globalAlpha = 1;
-}
-
-function drawGraph() {
-	if (graphDrawFrame !== null) {
-		cancelAnimationFrame(graphDrawFrame);
-		graphDrawFrame = null;
-	}
-	drawGraphLinkLayer();
-	drawGraphGeometry();
-	drawGraphLabels();
-	const now = performance.now();
-	graphLastLinkDraw = now;
-	graphLastGeometryDraw = now;
-	graphLastLabelDraw = now;
-}
-
-function requestGraphDraw(forceLabels = false) {
-	if (graphDrawFrame !== null) return;
-	graphDrawFrame = requestAnimationFrame(now => {
-		graphDrawFrame = null;
-		const useDenseCadence = isGraphDense() && isGraphMoving();
-		const cadence = isGraphVeryDense()
-			? GRAPH_RENDER_CADENCE.veryDense
-			: GRAPH_RENDER_CADENCE.dense;
-		if (!useDenseCadence || now - graphLastLinkDraw >= cadence.links) {
-			drawGraphLinkLayer();
-			graphLastLinkDraw = now;
-		}
-		if (!useDenseCadence || now - graphLastGeometryDraw >= cadence.geometry) {
-			drawGraphGeometry();
-			graphLastGeometryDraw = now;
-		}
-		if (forceLabels || !useDenseCadence || now - graphLastLabelDraw >= cadence.labels) {
-			drawGraphLabels();
-			graphLastLabelDraw = now;
-		}
-	});
-}
-
-function saveGraphPositions(nodes = graphSimulation?.nodes() || []) {
-	nodes.forEach(node => {
-		graphPositions.set(node.id, { x: node.x, y: node.y, vx: node.vx, vy: node.vy });
-	});
-}
-
-function ensureGraphScene() {
-	if (graphSceneReady) return;
-	graphSceneReady = true;
-
-	graphZoom = d3.zoom()
-		.scaleExtent([0.25, 4])
-		.filter(graphZoomFilter)
-		.on("zoom", event => {
-			graphTransform = event.transform;
-			requestGraphDraw();
-		})
-		.on("end", () => drawGraph());
-	graphCanvas
-		.call(graphZoom)
-		.call(graphDragBehavior())
-		.on("dblclick.zoom", null)
-		.on("pointermove.graph", graphPointerMoved)
-		.on("pointerleave.graph", graphPointerLeft)
-		.on("click.graph", graphClicked);
-	document.fonts?.ready.then(drawGraph);
-}
-
-function updateGraphFocus() {
-	if (!graphSceneReady) return;
-	const activeId = graphDraggingNodeId || graphHoveredNodeId || state.graphNodeId;
-	const relatedNodes = new Set(activeId ? [activeId] : []);
-
-	if (activeId) {
-		state.graphData.links.forEach(link => {
-			const sourceId = graphNodeId(link.source);
-			const targetId = graphNodeId(link.target);
-			if (sourceId === activeId || targetId === activeId) {
-				relatedNodes.add(sourceId);
-				relatedNodes.add(targetId);
-			}
-		});
-	}
-
-	graphActiveNodeId = activeId;
-	graphRelatedNodeIds = relatedNodes;
-	drawGraph();
-}
-
 function resetGraphDetail() {
 	const detail = d3.select("#graph-detail");
 	detail.select(".graph-detail-name").text("Select an entrant");
-	detail.select(".graph-detail-source").text("Inspect their elimination record");
+	detail.select(".graph-detail-source").text("Inspect their relationship record");
 	detail.select(".graph-detail-meta").text("—");
 }
 
@@ -521,223 +105,54 @@ function updateGraphDetail(node) {
 	if (node.isWinner) titleParts.push("Season winner");
 	detail.select(".graph-detail-name").text(titleParts.join(" · "));
 	detail.select(".graph-detail-source").text(node.mediaSource);
-	detail.select(".graph-detail-meta").text(
-		`${node.kills} ${node.kills === 1 ? "kill" : "kills"} · ${graphStatus(node)}`
-	);
+	const metrics = [`${node.kills} ${node.kills === 1 ? "kill" : "kills"}`];
+	if (node.assists) metrics.push(`${node.assists} ${node.assists === 1 ? "assist" : "assists"}`);
+	if (node.degree) metrics.push(`${node.degree} ${node.degree === 1 ? "link" : "links"}`);
+	metrics.push(graphStatus(node));
+	detail.select(".graph-detail-meta").text(metrics.join(" · "));
 }
 
-function selectGraphNode(nodeId) {
-	state.graphNodeId = nodeId;
-	const node = state.graphData.nodes.find(candidate => candidate.id === nodeId);
-	if (node) updateGraphDetail(node);
-	else resetGraphDetail();
-	updateGraphFocus();
-}
+let graphController = null;
 
-function graphDragBehavior() {
-	return d3.drag()
-		.container(graphCanvas.node())
-		.subject(event => {
-			const node = graphNodeAtPoint(event.x, event.y);
-			return node ? {
-				node,
-				x: graphTransform.applyX(node.x),
-				y: graphTransform.applyY(node.y)
-			} : null;
-		})
-		.on("start", event => {
-			const node = event.subject.node;
-			event.sourceEvent.stopPropagation();
-			node.wasDragged = false;
-			if (!event.active) graphSimulation.alphaTarget(0.18).restart();
-			node.fx = node.x;
-			node.fy = node.y;
-		})
-		.on("drag", event => {
-			const node = event.subject.node;
-			if (!node.wasDragged) {
-				graphDraggingNodeId = node.id;
-				updateGraphFocus();
+function ensureModernGraph() {
+	if (graphController) return graphController;
+	graphController = new GraphController(
+		graphStage.node(),
+		graphCanvas.node(),
+		{
+			onSelection(node) {
+				state.graphNodeId = node?.id || null;
+				if (node) updateGraphDetail(node);
+				else resetGraphDetail();
 			}
-			node.wasDragged = true;
-			[node.fx, node.fy] = graphTransform.invert([event.x, event.y]);
-		})
-		.on("end", event => {
-			const node = event.subject.node;
-			if (!event.active) graphSimulation.alphaTarget(0);
-			node.fx = null;
-			node.fy = null;
-			graphDraggingNodeId = null;
-			if (node.wasDragged) updateGraphFocus();
-			else selectGraphNode(node.id);
-			drawGraph();
-		});
-}
-
-function graphNodeAtPoint(x, y) {
-	const [graphX, graphY] = graphTransform.invert([x, y]);
-	for (let index = state.graphData.nodes.length - 1; index >= 0; index -= 1) {
-		const node = state.graphData.nodes[index];
-		const hitRadius = Math.max(graphNodeRadius(node) + 2, 8 / graphTransform.k);
-		const dx = node.x - graphX;
-		const dy = node.y - graphY;
-		if (dx * dx + dy * dy <= hitRadius * hitRadius) return node;
-	}
-	return null;
-}
-
-function graphEventPoint(event) {
-	const source = event.touches?.[0] || event.changedTouches?.[0] || event;
-	return d3.pointer(source, graphCanvas.node());
-}
-
-function graphNodeAtEvent(event) {
-	return graphNodeAtPoint(...graphEventPoint(event));
-}
-
-function graphZoomFilter(event) {
-	if (event.button || (event.ctrlKey && event.type !== "wheel")) return false;
-	if (event.type === "mousedown") return !graphNodeAtEvent(event);
-	if (event.type === "touchstart" && event.touches.length === 1) return !graphNodeAtEvent(event);
-	return true;
-}
-
-function graphPointerMoved(event) {
-	if (event.pointerType === "touch" || graphDraggingNodeId) return;
-	const node = graphNodeAtEvent(event);
-	const nodeId = node?.id || null;
-	graphCanvas.style("cursor", node ? "pointer" : event.buttons ? "grabbing" : "grab");
-	if (nodeId === graphHoveredNodeId) return;
-	graphHoveredNodeId = nodeId;
-	updateGraphFocus();
-}
-
-function graphPointerLeft(event) {
-	if (event.pointerType === "touch" || graphDraggingNodeId || !graphHoveredNodeId) return;
-	graphHoveredNodeId = null;
-	graphCanvas.style("cursor", "grab");
-	updateGraphFocus();
-}
-
-function graphClicked(event) {
-	const node = graphNodeAtEvent(event);
-	if (node?.wasDragged) {
-		node.wasDragged = false;
-		return;
-	}
-	selectGraphNode(node?.id || null);
-}
-
-function graphTicked() {
-	if (!graphSceneReady) return;
-	if (graphCollisionForce && isGraphDense()) {
-		const iterations = graphSimulation.alpha() > 0.22 ? 1 : 2;
-		if (iterations !== graphCollisionIterations) {
-			graphCollisionIterations = iterations;
-			graphCollisionForce.iterations(iterations);
 		}
-	}
-	requestGraphDraw();
-}
-
-function fitGraph(duration = 0) {
-	const nodes = state.graphData.nodes.filter(node => Number.isFinite(node.x) && Number.isFinite(node.y));
-	if (!nodes.length || !graphWidth || !graphHeight || !graphZoom) return;
-	const xExtent = d3.extent(nodes, node => node.x);
-	const yExtent = d3.extent(nodes, node => node.y);
-	const contentWidth = Math.max(xExtent[1] - xExtent[0] + 80, 120);
-	const contentHeight = Math.max(yExtent[1] - yExtent[0] + 80, 120);
-	const scale = Math.max(0.25, Math.min(2, 0.9 / Math.max(
-		contentWidth / graphWidth,
-		contentHeight / graphHeight
-	)));
-	const centerX = (xExtent[0] + xExtent[1]) / 2;
-	const centerY = (yExtent[0] + yExtent[1]) / 2;
-	const transform = d3.zoomIdentity
-		.translate(graphWidth / 2, graphHeight / 2)
-		.scale(scale)
-		.translate(-centerX, -centerY);
-	const target = duration ? graphCanvas.transition().duration(duration) : graphCanvas;
-	target.call(graphZoom.transform, transform);
+	);
+	return graphController;
 }
 
 function resizeGraph() {
-	if (!graphSceneReady) return;
-	graphWidth = graphStage.node().clientWidth || 1100;
-	graphHeight = graphStage.node().clientHeight || 620;
-	graphPixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
-	for (const canvas of [graphLinkCanvas.node(), graphCanvas.node(), graphLabelCanvas.node()]) {
-		canvas.width = Math.round(graphWidth * graphPixelRatio);
-		canvas.height = Math.round(graphHeight * graphPixelRatio);
-	}
-
-	if (graphSimulation) {
-		graphSimulation
-			.force("x", d3.forceX(graphWidth / 2).strength(GRAPH_FORCE.center))
-			.force("y", d3.forceY(graphHeight / 2).strength(GRAPH_FORCE.center));
-		if (state.activeView === "graph") graphSimulation.alpha(0.25).restart();
-	}
+	ensureModernGraph().resize();
 }
 
 function updateGraph(graphData) {
-	ensureGraphScene();
-	saveGraphPositions();
-	resizeGraph();
-	const previousNodeIds = new Set(graphSimulation?.nodes().map(node => node.id) || []);
-	const denseGraph = isGraphDense();
-	const veryDenseGraph = isGraphVeryDense();
-
-	graphData.nodes.forEach((node, index) => {
-		const saved = graphPositions.get(node.id);
-		if (saved) Object.assign(node, saved);
-		else {
-			const angle = index * 2.399963229728653;
-			const radius = Math.sqrt(index + 1) * 18;
-			node.x = graphWidth / 2 + Math.cos(angle) * radius;
-			node.y = graphHeight / 2 + Math.sin(angle) * radius;
-		}
-	});
-
-	if (!graphSimulation) {
-		graphSimulation = d3.forceSimulation()
-			.on("tick", graphTicked)
-			.on("end", () => {
-				saveGraphPositions();
-				drawGraph();
-			});
-	}
-	graphCollisionIterations = denseGraph ? 1 : 2;
-	graphCollisionForce = d3.forceCollide(node => graphNodeRadius(node) + 8)
-		.strength(0.9)
-		.iterations(graphCollisionIterations);
-	graphSimulation
-		.nodes(graphData.nodes)
-		.force("link", d3.forceLink(graphData.links)
-			.id(node => node.id)
-			.distance(GRAPH_FORCE.linkDistance)
-			.strength(GRAPH_FORCE.linkStrength))
-		.force("charge", d3.forceManyBody()
-			.strength(GRAPH_FORCE.charge)
-			.theta(veryDenseGraph ? 1.1 : denseGraph ? 1 : 0.9))
-		.force("x", d3.forceX(graphWidth / 2).strength(GRAPH_FORCE.center))
-		.force("y", d3.forceY(graphHeight / 2).strength(GRAPH_FORCE.center))
-		.force("collision", graphCollisionForce)
-		.alphaDecay(1 - Math.pow(0.001, 1 / (veryDenseGraph ? 220 : denseGraph ? 250 : 300)))
-		.alpha(previousNodeIds.size ? 0.72 : 1);
-
-	if (state.activeView === "graph") graphSimulation.restart();
-	else graphSimulation.stop();
-	graphTicked();
-
+	const controller = ensureModernGraph();
+	controller.setData(graphData, state.graphNodeId);
 	const entrantCount = graphData.nodes.filter(node => !node.isExternal).length;
 	const deathCount = graphData.nodes.filter(node => node.deaths).length;
-	d3.select("#graph-summary").text(
-		`${entrantCount} entrants · ${graphData.links.length} eliminations · ${deathCount} self-eliminations`
-	);
+	const killCount = graphData.links.filter(link => link.type === "Kill").length;
+	const assistCount = graphData.links.filter(link => link.type === "Kill Assist").length;
+	const otherCount = graphData.links.length - killCount - assistCount;
+	const summary = [
+		`${entrantCount} entrants`,
+		`${killCount} eliminations`,
+		`${assistCount} assists`
+	];
+	if (otherCount) summary.push(`${otherCount} other links`);
+	if (deathCount) summary.push(`${deathCount} self-eliminations`);
+	d3.select("#graph-summary").text(summary.join(" · "));
 	const selectedNode = graphData.nodes.find(node => node.id === state.graphNodeId);
 	if (selectedNode) updateGraphDetail(selectedNode);
 	else resetGraphDetail();
-	updateGraphFocus();
 }
 
 function setActiveView(view) {
@@ -750,14 +165,8 @@ function setActiveView(view) {
 		.attr("aria-selected", function() { return this.dataset.view === view ? "true" : "false"; });
 	d3.select("#graph-view").property("hidden", view !== "graph");
 	d3.select("#analytics-view").property("hidden", view !== "analytics");
-
-	if (view === "graph") {
-		requestAnimationFrame(() => {
-			resizeGraph();
-			graphSimulation?.alpha(0.18).restart();
-		});
-	} else {
-		graphSimulation?.stop();
+	ensureModernGraph().setVisible(view === "graph");
+	if (view === "analytics") {
 		updateRoster(state.filteredData, rosterSvg.node().clientWidth || 680, false);
 		updateTrend(false, trendSvg.node().clientWidth || 1000);
 	}
@@ -1471,11 +880,6 @@ function initialize(rawEntrants, rawLogs) {
 	updateSeasonOptions();
 	applyFilters();
 	setActiveView(state.activeView);
-	requestAnimationFrame(() => {
-		graphSimulation.stop().tick(300);
-		graphTicked();
-		fitGraph(0);
-	});
 }
 
 // ─────────────────────────────────────────────

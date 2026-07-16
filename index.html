@@ -66,9 +66,7 @@
 					<p class="graph-summary" id="graph-summary">Loading archive</p>
 				</header>
 				<div class="graph-stage" id="graph-stage">
-					<canvas id="graph-link-canvas" aria-hidden="true"></canvas>
-					<canvas id="graph-canvas" role="img" aria-label="Force-directed graph of Nexus eliminations"></canvas>
-					<canvas id="graph-label-canvas" aria-hidden="true"></canvas>
+					<canvas id="graph-canvas" role="img" aria-label="Force-directed graph of Nexus "></canvas>
 				</div>
 				<div class="graph-footer">
 					<div class="graph-legend" aria-label="Graph legend">
@@ -77,11 +75,14 @@
 						<span><i class="legend-dot is-other"></i>Other</span>
 						<span><i class="legend-dot is-external"></i>External</span>
 						<span><i class="legend-ring"></i>Self-eliminated</span>
+						<!-- <span><i class="legend-link is-kill"></i>Kill</span>
+						<span><i class="legend-link is-assist"></i>Assist</span>
+						<span><i class="legend-link is-other-link"></i>Other link</span> -->
 					</div>
 					<div class="graph-detail" id="graph-detail">
 						<div>
 							<div class="graph-detail-name">Select an entrant</div>
-							<div class="graph-detail-source">Inspect their elimination record</div>
+							<div class="graph-detail-source">Inspect their relationship record</div>
 						</div>
 						<div class="graph-detail-meta">—</div>
 					</div>
@@ -143,6 +144,9 @@
 	<div class="tooltip" id="tooltip" role="tooltip"></div>
 
 	<script src="d3.v7.min.js"></script>
+	<script src="graph-model.js"></script>
+	<script src="graph-renderer.js"></script>
+	<script src="graph-controller.js"></script>
 	<script src="app.js"></script>
 </body>
 </html>

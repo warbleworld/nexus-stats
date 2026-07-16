@@ -317,19 +317,12 @@ select:disabled {
 	overscroll-behavior: contain;
 }
 
-#graph-link-canvas,
-#graph-canvas,
-#graph-label-canvas {
+#graph-canvas {
 	position: absolute;
 	inset: 0;
 	display: block;
 	width: 100%;
 	height: 100%;
-}
-
-#graph-link-canvas,
-#graph-label-canvas {
-	pointer-events: none;
 }
 
 #graph-canvas {
@@ -383,6 +376,38 @@ select:disabled {
 
 .legend-ring {
 	border: 1.5px dashed #c64f5f;
+}
+
+.legend-link {
+	position: relative;
+	display: inline-block;
+	width: 18px;
+	height: 8px;
+	flex: 0 0 auto;
+	border-top: 2px solid var(--ink);
+	color: var(--ink);
+}
+
+.legend-link::after {
+	position: absolute;
+	top: -4px;
+	right: -1px;
+	width: 5px;
+	height: 5px;
+	border-top: 2px solid currentColor;
+	border-right: 2px solid currentColor;
+	content: "";
+	transform: rotate(45deg);
+}
+
+.legend-link.is-assist {
+	border-top: 2px dashed #287f86;
+	color: #287f86;
+}
+
+.legend-link.is-other-link {
+	border-top-color: var(--muted);
+	color: var(--muted);
 }
 
 .graph-detail {
