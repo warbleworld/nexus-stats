@@ -48,6 +48,7 @@ const tooltip      = d3.select("#tooltip");
 const donutSvg     = d3.select("#donut-chart").attr("viewBox", "0 0 360 360");
 const rosterSvg    = d3.select("#roster-chart");
 const trendSvg     = d3.select("#trend-chart");
+const graphCanvas  = d3.select("#graph-canvas");
 const graphSvg     = d3.select("#graph-chart");
 const graphStage   = d3.select("#graph-stage");
 
@@ -183,11 +184,19 @@ function deriveGraphData(entrants, logs) {
 let graphSimulation = null;
 let graphZoom = null;
 let graphLayers = null;
+let graphNodeHits = null;
+let graphHitNodes = [];
 let graphWidth = 0;
 let graphHeight = 0;
+let graphPixelRatio = 1;
+let graphTransform = d3.zoomIdentity;
 let graphHoveredNodeId = null;
 let graphDraggingNodeId = null;
+let graphActiveNodeId = null;
+let graphRelatedNodeIds = new Set();
 const graphPositions = new Map();
+const graphContext = graphCanvas.node().getContext("2d");
+const graphFocusedColors = new Map();
 
 function graphNodeRadius(node) {
 	return 6.5 + Math.min(Math.sqrt(node.kills) * 3.2, 8);
@@ -203,46 +212,142 @@ function graphStatus(node) {
 	return "No elimination recorded";
 }
 
-function graphLinkGeometry(link) {
+function graphFocusedColor(color) {
+	if (graphFocusedColors.has(color)) return graphFocusedColors.get(color);
+	const channels = color.match(/[\da-f]{2}/gi).map(channel => (
+		Math.min(255, Math.round(Number.parseInt(channel, 16) * 1.08))
+	));
+	const focused = `rgb(${channels.join(",")})`;
+	graphFocusedColors.set(color, focused);
+	return focused;
+}
+
+function drawGraphLink(link) {
 	const source = link.source;
 	const target = link.target;
 	const dx = target.x - source.x;
 	const dy = target.y - source.y;
 	const distance = Math.hypot(dx, dy) || 1;
+	const directionX = dx / distance;
+	const directionY = dy / distance;
 	const sourceOffset = graphNodeRadius(source) + 2;
 	const targetOffset = graphNodeRadius(target) + 2;
-	return {
-		x1: source.x + dx / distance * sourceOffset,
-		y1: source.y + dy / distance * sourceOffset,
-		x2: target.x - dx / distance * targetOffset,
-		y2: target.y - dy / distance * targetOffset,
-		dx: dx / distance,
-		dy: dy / distance
-	};
-}
-
-function graphLinkPath(geometry) {
+	const x1 = source.x + directionX * sourceOffset;
+	const y1 = source.y + directionY * sourceOffset;
+	const x2 = target.x - directionX * targetOffset;
+	const y2 = target.y - directionY * targetOffset;
 	const arrowLength = 7;
 	const arrowWidth = 3;
 	const shaftHalfWidth = 0.7;
-	const segmentLength = Math.hypot(geometry.x2 - geometry.x1, geometry.y2 - geometry.y1);
+	const segmentLength = Math.hypot(x2 - x1, y2 - y1);
 	const safeArrowLength = Math.min(arrowLength, Math.max(segmentLength - 1.5, 0));
 	const safeArrowWidth = Math.min(arrowWidth, Math.max(safeArrowLength * 0.65, shaftHalfWidth));
-	const baseX = geometry.x2 - geometry.dx * safeArrowLength;
-	const baseY = geometry.y2 - geometry.dy * safeArrowLength;
-	const shaftX = -geometry.dy * shaftHalfWidth;
-	const shaftY = geometry.dx * shaftHalfWidth;
-	const arrowX = -geometry.dy * safeArrowWidth;
-	const arrowY = geometry.dx * safeArrowWidth;
-	return [
-		`M${geometry.x1 + shaftX},${geometry.y1 + shaftY}`,
-		`L${baseX + shaftX},${baseY + shaftY}`,
-		`L${baseX - shaftX},${baseY - shaftY}`,
-		`L${geometry.x1 - shaftX},${geometry.y1 - shaftY}Z`,
-		`M${baseX + arrowX},${baseY + arrowY}`,
-		`L${geometry.x2},${geometry.y2}`,
-		`L${baseX - arrowX},${baseY - arrowY}Z`
-	].join("");
+	const baseX = x2 - directionX * safeArrowLength;
+	const baseY = y2 - directionY * safeArrowLength;
+	const shaftX = -directionY * shaftHalfWidth;
+	const shaftY = directionX * shaftHalfWidth;
+	const arrowX = -directionY * safeArrowWidth;
+	const arrowY = directionX * safeArrowWidth;
+
+	graphContext.moveTo(x1 + shaftX, y1 + shaftY);
+	graphContext.lineTo(baseX + shaftX, baseY + shaftY);
+	graphContext.lineTo(baseX - shaftX, baseY - shaftY);
+	graphContext.lineTo(x1 - shaftX, y1 - shaftY);
+	graphContext.closePath();
+	graphContext.moveTo(baseX + arrowX, baseY + arrowY);
+	graphContext.lineTo(x2, y2);
+	graphContext.lineTo(baseX - arrowX, baseY - arrowY);
+	graphContext.closePath();
+}
+
+function drawGraphLinks(isRelated, color, opacity) {
+	graphContext.globalAlpha = opacity;
+	graphContext.fillStyle = color;
+	graphContext.beginPath();
+	for (const link of state.graphData.links) {
+		const related = graphActiveNodeId && (
+			graphNodeId(link.source) === graphActiveNodeId ||
+			graphNodeId(link.target) === graphActiveNodeId
+		);
+		if (Boolean(related) === isRelated) drawGraphLink(link);
+	}
+	graphContext.fill();
+}
+
+function drawGraph() {
+	if (!graphWidth || !graphHeight) return;
+	const canvas = graphCanvas.node();
+	graphContext.setTransform(1, 0, 0, 1, 0, 0);
+	graphContext.clearRect(0, 0, canvas.width, canvas.height);
+	graphContext.setTransform(graphPixelRatio, 0, 0, graphPixelRatio, 0, 0);
+	graphContext.translate(graphTransform.x, graphTransform.y);
+	graphContext.scale(graphTransform.k, graphTransform.k);
+
+	if (graphActiveNodeId) {
+		drawGraphLinks(false, "rgba(23, 33, 31, 0.28)", 0.1);
+		drawGraphLinks(true, "#17211f", 1);
+	} else {
+		drawGraphLinks(false, "rgba(23, 33, 31, 0.28)", 1);
+	}
+
+	graphContext.lineWidth = 2;
+	graphContext.strokeStyle = "#c64f5f";
+	graphContext.setLineDash([3, 3]);
+	for (const node of state.graphData.nodes) {
+		if (!node.deaths) continue;
+		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
+		graphContext.beginPath();
+		graphContext.arc(node.x, node.y, graphNodeRadius(node) + 5, 0, Math.PI * 2);
+		graphContext.stroke();
+	}
+
+	graphContext.strokeStyle = COLORS.Other;
+	graphContext.setLineDash([]);
+	for (const node of state.graphData.nodes) {
+		if (!node.isWinner) continue;
+		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
+		graphContext.beginPath();
+		graphContext.arc(node.x, node.y, graphNodeRadius(node) + (node.deaths ? 9 : 5), 0, Math.PI * 2);
+		graphContext.stroke();
+	}
+
+	for (const node of state.graphData.nodes) {
+		const isFocused = node.id === graphActiveNodeId;
+		const fill = node.isExternal ? "#17211f" : COLORS[node.genderLabel];
+		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
+		graphContext.fillStyle = isFocused ? graphFocusedColor(fill) : fill;
+		graphContext.strokeStyle = node.isExternal ? "#f4f1ea" : "rgba(255, 255, 255, 0.96)";
+		graphContext.lineWidth = isFocused ? 3 : 2;
+		graphContext.beginPath();
+		graphContext.arc(node.x, node.y, graphNodeRadius(node), 0, Math.PI * 2);
+		graphContext.fill();
+		graphContext.stroke();
+	}
+
+	graphContext.font = '600 9px "DM Mono", monospace';
+	graphContext.textBaseline = "alphabetic";
+	graphContext.lineJoin = "round";
+	graphContext.lineWidth = 4;
+	graphContext.strokeStyle = "rgba(244, 241, 234, 0.94)";
+	graphContext.fillStyle = "#17211f";
+	for (const node of state.graphData.nodes) {
+		const isMuted = graphTransform.k < 1.1 && node.degree === 0 &&
+			node.id !== state.graphNodeId && node.id !== graphDraggingNodeId &&
+			node.id !== graphHoveredNodeId;
+		if (isMuted) continue;
+		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
+		const x = node.x + graphNodeRadius(node) + 6;
+		const y = node.y + 3;
+		graphContext.strokeText(node.name, x, y);
+		graphContext.fillText(node.name, x, y);
+	}
+	graphContext.globalAlpha = 1;
+}
+
+function saveGraphPositions(nodes = graphSimulation?.nodes() || []) {
+	nodes.forEach(node => {
+		graphPositions.set(node.id, { x: node.x, y: node.y, vx: node.vx, vy: node.vy });
+	});
 }
 
 function ensureGraphScene() {
@@ -255,18 +360,15 @@ function ensureGraphScene() {
 	graphLayers = {
 		background,
 		viewport,
-		links:   viewport.append("g").attr("class", "graph-links"),
-		deaths:  viewport.append("g").attr("class", "graph-death-rings"),
-		winners: viewport.append("g").attr("class", "graph-winner-rings"),
-		nodes:   viewport.append("g").attr("class", "graph-nodes"),
-		labels:  viewport.append("g").attr("class", "graph-labels")
+		hits: viewport.append("g").attr("class", "graph-node-hits")
 	};
 
 	graphZoom = d3.zoom()
 		.scaleExtent([0.25, 4])
 		.on("zoom", event => {
-			viewport.attr("transform", event.transform);
-			updateGraphLabelVisibility(event.transform.k);
+			graphTransform = event.transform;
+			viewport.attr("transform", graphTransform);
+			drawGraph();
 		});
 	graphSvg.call(graphZoom).on("dblclick.zoom", null);
 	graphSvg.on("click", event => {
@@ -274,18 +376,7 @@ function ensureGraphScene() {
 			selectGraphNode(null);
 		}
 	});
-}
-
-function updateGraphLabelVisibility(zoomScale = 1) {
-	if (!graphLayers) return;
-	graphLayers.labels.selectAll("g.graph-label")
-		.classed("is-label-muted", node => (
-			zoomScale < 1.1 &&
-			node.degree === 0 &&
-			node.id !== state.graphNodeId &&
-			node.id !== graphDraggingNodeId &&
-			node.id !== graphHoveredNodeId
-		));
+	document.fonts?.ready.then(drawGraph);
 }
 
 function updateGraphFocus() {
@@ -304,21 +395,9 @@ function updateGraphFocus() {
 		});
 	}
 
-	graphLayers.links.selectAll("path")
-		.classed("is-related", link => activeId && (
-			graphNodeId(link.source) === activeId || graphNodeId(link.target) === activeId
-		))
-		.classed("is-dimmed", link => activeId && (
-			graphNodeId(link.source) !== activeId && graphNodeId(link.target) !== activeId
-		));
-
-	[graphLayers.nodes, graphLayers.deaths, graphLayers.winners, graphLayers.labels]
-		.forEach(layer => layer.selectAll(".graph-mark")
-			.classed("is-focused", node => node.id === activeId)
-			.classed("is-dimmed", node => activeId && !relatedNodes.has(node.id))
-		);
-
-	updateGraphLabelVisibility(d3.zoomTransform(graphSvg.node()).k);
+	graphActiveNodeId = activeId;
+	graphRelatedNodeIds = relatedNodes;
+	drawGraph();
 }
 
 function resetGraphDetail() {
@@ -377,27 +456,11 @@ function graphDragBehavior() {
 
 function graphTicked() {
 	if (!graphLayers) return;
-	graphLayers.links.selectAll("path").each(function(link) {
-		const geometry = graphLinkGeometry(link);
-		d3.select(this).attr("d", graphLinkPath(geometry));
-	});
-	graphLayers.nodes.selectAll("circle")
-		.attr("cx", node => node.x)
-		.attr("cy", node => node.y);
-	graphLayers.deaths.selectAll("circle")
-		.attr("cx", node => node.x)
-		.attr("cy", node => node.y);
-	graphLayers.winners.selectAll("circle")
-		.attr("cx", node => node.x)
-		.attr("cy", node => node.y);
-	graphLayers.labels.selectAll("g.graph-label")
-		.attr("transform", node => (
-			`translate(${node.x + graphNodeRadius(node) + 6},${node.y + 3})`
-		));
-
-	state.graphData.nodes.forEach(node => {
-		graphPositions.set(node.id, { x: node.x, y: node.y, vx: node.vx, vy: node.vy });
-	});
+	for (const hit of graphHitNodes) {
+		hit.cx.baseVal.value = hit.__data__.x;
+		hit.cy.baseVal.value = hit.__data__.y;
+	}
+	drawGraph();
 }
 
 function fitGraph(duration = 0) {
@@ -425,6 +488,10 @@ function resizeGraph() {
 	if (!graphLayers) return;
 	graphWidth = graphStage.node().clientWidth || 1100;
 	graphHeight = graphStage.node().clientHeight || 620;
+	graphPixelRatio = Math.max(1, window.devicePixelRatio || 1);
+	const canvas = graphCanvas.node();
+	canvas.width = Math.round(graphWidth * graphPixelRatio);
+	canvas.height = Math.round(graphHeight * graphPixelRatio);
 	graphSvg.attr("viewBox", `0 0 ${graphWidth} ${graphHeight}`);
 	graphLayers.background.attr("width", graphWidth).attr("height", graphHeight);
 
@@ -438,6 +505,7 @@ function resizeGraph() {
 
 function updateGraph(graphData) {
 	ensureGraphScene();
+	saveGraphPositions();
 	resizeGraph();
 	const previousNodeIds = new Set(graphSimulation?.nodes().map(node => node.id) || []);
 
@@ -452,29 +520,11 @@ function updateGraph(graphData) {
 		}
 	});
 
-	graphLayers.links.selectAll("path.graph-link")
-		.data(graphData.links, link => link.id)
-		.join("path")
-		.attr("class", "graph-link graph-mark");
-
-	graphLayers.deaths.selectAll("circle.graph-death-ring")
-		.data(graphData.nodes.filter(node => node.deaths), node => node.id)
-		.join("circle")
-		.attr("class", "graph-death-ring graph-mark")
-		.attr("r", node => graphNodeRadius(node) + 5);
-
-	graphLayers.winners.selectAll("circle.graph-winner-ring")
-		.data(graphData.nodes.filter(node => node.isWinner), node => node.id)
-		.join("circle")
-		.attr("class", "graph-winner-ring graph-mark")
-		.attr("r", node => graphNodeRadius(node) + (node.deaths ? 9 : 5));
-
-	graphLayers.nodes.selectAll("circle.graph-node")
+	graphNodeHits = graphLayers.hits.selectAll("circle.graph-node-hit")
 		.data(graphData.nodes, node => node.id)
 		.join("circle")
-		.attr("class", node => `graph-node graph-mark${node.isExternal ? " is-external" : ""}`)
-		.attr("r", graphNodeRadius)
-		.attr("fill", node => node.isExternal ? "#17211f" : COLORS[node.genderLabel])
+		.attr("class", "graph-node-hit")
+		.attr("r", node => graphNodeRadius(node) + 2)
 		.call(graphDragBehavior())
 		.on("pointerenter", (event, node) => {
 			if (event.pointerType === "touch") return;
@@ -494,20 +544,12 @@ function updateGraph(graphData) {
 			}
 			selectGraphNode(node.id);
 		});
-
-	const labels = graphLayers.labels.selectAll("g.graph-label")
-		.data(graphData.nodes, node => node.id)
-		.join(enter => {
-			const label = enter.append("g")
-				.attr("class", "graph-label graph-mark");
-			label.append("text").attr("class", "graph-label-halo");
-			label.append("text").attr("class", "graph-label-text");
-			return label;
-		});
-	labels.selectAll("text").text(node => node.name);
+	graphHitNodes = graphNodeHits.nodes();
 
 	if (!graphSimulation) {
-		graphSimulation = d3.forceSimulation().on("tick", graphTicked);
+		graphSimulation = d3.forceSimulation()
+			.on("tick", graphTicked)
+			.on("end", () => saveGraphPositions());
 	}
 	graphSimulation
 		.nodes(graphData.nodes)
