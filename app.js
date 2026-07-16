@@ -262,14 +262,6 @@ function ensureGraphScene() {
 			selectGraphNode(null);
 		}
 	});
-
-	d3.select("#graph-zoom-in").on("click", () => {
-		graphSvg.transition().duration(220).call(graphZoom.scaleBy, 1.3);
-	});
-	d3.select("#graph-zoom-out").on("click", () => {
-		graphSvg.transition().duration(220).call(graphZoom.scaleBy, 1 / 1.3);
-	});
-	d3.select("#graph-fit").on("click", () => fitGraph(TRANSITION_DURATION));
 }
 
 function updateGraphLabelVisibility(zoomScale = 1) {
