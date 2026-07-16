@@ -210,31 +210,43 @@ function graphLinkGeometry(link) {
 	const dy = target.y - source.y;
 	const distance = Math.hypot(dx, dy) || 1;
 	const sourceOffset = graphNodeRadius(source) + 2;
-	const targetOffset = graphNodeRadius(target) + 4;
+	const targetOffset = graphNodeRadius(target) + 2;
 	return {
 		x1: source.x + dx / distance * sourceOffset,
 		y1: source.y + dy / distance * sourceOffset,
 		x2: target.x - dx / distance * targetOffset,
-		y2: target.y - dy / distance * targetOffset
+		y2: target.y - dy / distance * targetOffset,
+		dx: dx / distance,
+		dy: dy / distance
 	};
+}
+
+function graphLinkPath(geometry) {
+	const arrowLength = 7;
+	const arrowWidth = 3;
+	const shaftHalfWidth = 0.7;
+	const segmentLength = Math.hypot(geometry.x2 - geometry.x1, geometry.y2 - geometry.y1);
+	const safeArrowLength = Math.min(arrowLength, Math.max(segmentLength - 1.5, 0));
+	const safeArrowWidth = Math.min(arrowWidth, Math.max(safeArrowLength * 0.65, shaftHalfWidth));
+	const baseX = geometry.x2 - geometry.dx * safeArrowLength;
+	const baseY = geometry.y2 - geometry.dy * safeArrowLength;
+	const shaftX = -geometry.dy * shaftHalfWidth;
+	const shaftY = geometry.dx * shaftHalfWidth;
+	const arrowX = -geometry.dy * safeArrowWidth;
+	const arrowY = geometry.dx * safeArrowWidth;
+	return [
+		`M${geometry.x1 + shaftX},${geometry.y1 + shaftY}`,
+		`L${baseX + shaftX},${baseY + shaftY}`,
+		`L${baseX - shaftX},${baseY - shaftY}`,
+		`L${geometry.x1 - shaftX},${geometry.y1 - shaftY}Z`,
+		`M${baseX + arrowX},${baseY + arrowY}`,
+		`L${geometry.x2},${geometry.y2}`,
+		`L${baseX - arrowX},${baseY - arrowY}Z`
+	].join("");
 }
 
 function ensureGraphScene() {
 	if (graphLayers) return;
-
-	const defs = graphSvg.append("defs");
-	defs.append("marker")
-		.attr("id", "graph-arrow")
-		.attr("viewBox", "0 -4 8 8")
-		.attr("refX", 5)
-		.attr("refY", 0)
-		.attr("markerWidth", 7)
-		.attr("markerHeight", 7)
-		.attr("orient", "auto")
-		.attr("markerUnits", "userSpaceOnUse")
-		.append("path")
-		.attr("d", "M0,-3.5L8,0L0,3.5Z")
-		.attr("fill", "#17211f");
 
 	const background = graphSvg.append("rect")
 		.attr("class", "graph-background")
@@ -292,7 +304,7 @@ function updateGraphFocus() {
 		});
 	}
 
-	graphLayers.links.selectAll("line")
+	graphLayers.links.selectAll("path")
 		.classed("is-related", link => activeId && (
 			graphNodeId(link.source) === activeId || graphNodeId(link.target) === activeId
 		))
@@ -365,13 +377,9 @@ function graphDragBehavior() {
 
 function graphTicked() {
 	if (!graphLayers) return;
-	graphLayers.links.selectAll("line").each(function(link) {
+	graphLayers.links.selectAll("path").each(function(link) {
 		const geometry = graphLinkGeometry(link);
-		d3.select(this)
-			.attr("x1", geometry.x1)
-			.attr("y1", geometry.y1)
-			.attr("x2", geometry.x2)
-			.attr("y2", geometry.y2);
+		d3.select(this).attr("d", graphLinkPath(geometry));
 	});
 	graphLayers.nodes.selectAll("circle")
 		.attr("cx", node => node.x)
@@ -444,11 +452,10 @@ function updateGraph(graphData) {
 		}
 	});
 
-	graphLayers.links.selectAll("line.graph-link")
+	graphLayers.links.selectAll("path.graph-link")
 		.data(graphData.links, link => link.id)
-		.join("line")
-		.attr("class", "graph-link graph-mark")
-		.attr("marker-end", "url(#graph-arrow)");
+		.join("path")
+		.attr("class", "graph-link graph-mark");
 
 	graphLayers.deaths.selectAll("circle.graph-death-ring")
 		.data(graphData.nodes.filter(node => node.deaths), node => node.id)

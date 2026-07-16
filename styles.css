@@ -328,15 +328,15 @@ select:disabled {
 }
 
 .graph-link {
-	fill: none;
-	stroke: rgba(23, 33, 31, 0.28);
-	stroke-width: 1.4;
-	transition: opacity 140ms ease, stroke 140ms ease, stroke-width 140ms ease;
+	color: rgba(23, 33, 31, 0.28);
+	fill: currentColor;
+	stroke: none;
+	pointer-events: none;
+	transition: opacity 140ms ease, color 140ms ease;
 }
 
 .graph-link.is-related {
-	stroke: var(--ink);
-	stroke-width: 2.2;
+	color: var(--ink);
 }
 
 .graph-node {
