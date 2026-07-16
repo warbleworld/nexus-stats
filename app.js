@@ -360,7 +360,6 @@ function graphDragBehavior() {
 			node.wasDragged = true;
 			node.fx = event.x;
 			node.fy = event.y;
-			moveTooltip(event.sourceEvent);
 		})
 		.on("end", (event, node) => {
 			if (!event.active) graphSimulation.alphaTarget(0);
@@ -369,7 +368,6 @@ function graphDragBehavior() {
 			graphDraggingNodeId = null;
 			if (node.wasDragged) updateGraphFocus();
 			else selectGraphNode(node.id);
-			if (!graphHoveredNodeId) hideTooltip();
 		});
 }
 
@@ -482,16 +480,11 @@ function updateGraph(graphData) {
 			if (event.pointerType === "touch") return;
 			graphHoveredNodeId = node.id;
 			updateGraphFocus();
-			showTooltip(event, node.name, `${node.kills} ${node.kills === 1 ? "kill" : "kills"} · ${graphStatus(node)}`);
-		})
-		.on("pointermove", event => {
-			if (event.pointerType !== "touch") moveTooltip(event);
 		})
 		.on("pointerleave", event => {
 			if (event.pointerType === "touch") return;
 			graphHoveredNodeId = null;
 			updateGraphFocus();
-			if (!graphDraggingNodeId) hideTooltip();
 		})
 		.on("click", (event, node) => {
 			event.stopPropagation();
