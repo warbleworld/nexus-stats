@@ -48,8 +48,9 @@ const tooltip      = d3.select("#tooltip");
 const donutSvg     = d3.select("#donut-chart").attr("viewBox", "0 0 360 360");
 const rosterSvg    = d3.select("#roster-chart");
 const trendSvg     = d3.select("#trend-chart");
+const graphLinkCanvas = d3.select("#graph-link-canvas");
 const graphCanvas  = d3.select("#graph-canvas");
-const graphSvg     = d3.select("#graph-chart");
+const graphLabelCanvas = d3.select("#graph-label-canvas");
 const graphStage   = d3.select("#graph-stage");
 
 // ─────────────────────────────────────────────
@@ -183,9 +184,7 @@ function deriveGraphData(entrants, logs) {
 
 let graphSimulation = null;
 let graphZoom = null;
-let graphLayers = null;
-let graphNodeHits = null;
-let graphHitNodes = [];
+let graphSceneReady = false;
 let graphWidth = 0;
 let graphHeight = 0;
 let graphPixelRatio = 1;
@@ -194,12 +193,31 @@ let graphHoveredNodeId = null;
 let graphDraggingNodeId = null;
 let graphActiveNodeId = null;
 let graphRelatedNodeIds = new Set();
+let graphDrawFrame = null;
+let graphLastLinkDraw = 0;
+let graphLastGeometryDraw = 0;
+let graphLastLabelDraw = 0;
+let graphCollisionForce = null;
+let graphCollisionIterations = 2;
 const graphPositions = new Map();
+const graphLinkContext = graphLinkCanvas.node().getContext("2d");
 const graphContext = graphCanvas.node().getContext("2d");
+const graphLabelContext = graphLabelCanvas.node().getContext("2d");
 const graphFocusedColors = new Map();
 
+const GRAPH_DENSE_ELEMENT_COUNT = 400;
+const GRAPH_VERY_DENSE_ELEMENT_COUNT = 1200;
+
+const GRAPH_RENDER_CADENCE = {
+	dense:     { links: 1000 / 20, geometry: 1000 / 45, labels: 1000 / 30 },
+	veryDense: { links: 1000 / 12, geometry: 1000 / 30, labels: 1000 / 15 }
+};
+
 function graphNodeRadius(node) {
-	return 6.5 + Math.min(Math.sqrt(node.kills) * 3.2, 8);
+	if (node.graphRadius === undefined) {
+		node.graphRadius = 6.5 + Math.min(Math.sqrt(node.kills) * 3.2, 8);
+	}
+	return node.graphRadius;
 }
 
 function graphNodeId(value) {
@@ -249,52 +267,103 @@ function drawGraphLink(link) {
 	const arrowX = -directionY * safeArrowWidth;
 	const arrowY = directionX * safeArrowWidth;
 
-	graphContext.moveTo(x1 + shaftX, y1 + shaftY);
-	graphContext.lineTo(baseX + shaftX, baseY + shaftY);
-	graphContext.lineTo(baseX - shaftX, baseY - shaftY);
-	graphContext.lineTo(x1 - shaftX, y1 - shaftY);
-	graphContext.closePath();
-	graphContext.moveTo(baseX + arrowX, baseY + arrowY);
-	graphContext.lineTo(x2, y2);
-	graphContext.lineTo(baseX - arrowX, baseY - arrowY);
-	graphContext.closePath();
+	graphLinkContext.moveTo(x1 + shaftX, y1 + shaftY);
+	graphLinkContext.lineTo(baseX + shaftX, baseY + shaftY);
+	graphLinkContext.lineTo(baseX - shaftX, baseY - shaftY);
+	graphLinkContext.lineTo(x1 - shaftX, y1 - shaftY);
+	graphLinkContext.closePath();
+	graphLinkContext.moveTo(baseX + arrowX, baseY + arrowY);
+	graphLinkContext.lineTo(x2, y2);
+	graphLinkContext.lineTo(baseX - arrowX, baseY - arrowY);
+	graphLinkContext.closePath();
 }
 
-function drawGraphLinks(isRelated, color, opacity) {
-	graphContext.globalAlpha = opacity;
-	graphContext.fillStyle = color;
-	graphContext.beginPath();
+function graphViewportBounds(margin = 0) {
+	return {
+		left:   graphTransform.invertX(-margin),
+		right:  graphTransform.invertX(graphWidth + margin),
+		top:    graphTransform.invertY(-margin),
+		bottom: graphTransform.invertY(graphHeight + margin)
+	};
+}
+
+function graphNodeIsVisible(node, bounds) {
+	return node.x >= bounds.left && node.x <= bounds.right &&
+		node.y >= bounds.top && node.y <= bounds.bottom;
+}
+
+function graphLinkIsVisible(link, bounds) {
+	const source = link.source;
+	const target = link.target;
+	return !(
+		(source.x < bounds.left && target.x < bounds.left) ||
+		(source.x > bounds.right && target.x > bounds.right) ||
+		(source.y < bounds.top && target.y < bounds.top) ||
+		(source.y > bounds.bottom && target.y > bounds.bottom)
+	);
+}
+
+function drawGraphLinks(isRelated, color, opacity, bounds) {
+	graphLinkContext.globalAlpha = opacity;
+	graphLinkContext.fillStyle = color;
+	graphLinkContext.beginPath();
 	for (const link of state.graphData.links) {
+		if (!graphLinkIsVisible(link, bounds)) continue;
 		const related = graphActiveNodeId && (
 			graphNodeId(link.source) === graphActiveNodeId ||
 			graphNodeId(link.target) === graphActiveNodeId
 		);
 		if (Boolean(related) === isRelated) drawGraphLink(link);
 	}
-	graphContext.fill();
+	graphLinkContext.fill();
 }
 
-function drawGraph() {
+function isGraphDense() {
+	return state.graphData.nodes.length + state.graphData.links.length >= GRAPH_DENSE_ELEMENT_COUNT;
+}
+
+function isGraphVeryDense() {
+	return state.graphData.nodes.length + state.graphData.links.length >= GRAPH_VERY_DENSE_ELEMENT_COUNT;
+}
+
+function isGraphMoving() {
+	return Boolean(graphSimulation && graphSimulation.alpha() > graphSimulation.alphaMin());
+}
+
+function prepareGraphContext(context, canvas) {
+	context.setTransform(1, 0, 0, 1, 0, 0);
+	context.clearRect(0, 0, canvas.width, canvas.height);
+	context.setTransform(graphPixelRatio, 0, 0, graphPixelRatio, 0, 0);
+	context.translate(graphTransform.x, graphTransform.y);
+	context.scale(graphTransform.k, graphTransform.k);
+}
+
+function drawGraphLinkLayer() {
 	if (!graphWidth || !graphHeight) return;
-	const canvas = graphCanvas.node();
-	graphContext.setTransform(1, 0, 0, 1, 0, 0);
-	graphContext.clearRect(0, 0, canvas.width, canvas.height);
-	graphContext.setTransform(graphPixelRatio, 0, 0, graphPixelRatio, 0, 0);
-	graphContext.translate(graphTransform.x, graphTransform.y);
-	graphContext.scale(graphTransform.k, graphTransform.k);
+	const canvas = graphLinkCanvas.node();
+	prepareGraphContext(graphLinkContext, canvas);
+	const bounds = graphViewportBounds(32);
 
 	if (graphActiveNodeId) {
-		drawGraphLinks(false, "rgba(23, 33, 31, 0.28)", 0.1);
-		drawGraphLinks(true, "#17211f", 1);
+		drawGraphLinks(false, "rgba(23, 33, 31, 0.28)", 0.1, bounds);
+		drawGraphLinks(true, "#17211f", 1, bounds);
 	} else {
-		drawGraphLinks(false, "rgba(23, 33, 31, 0.28)", 1);
+		drawGraphLinks(false, "rgba(23, 33, 31, 0.28)", 1, bounds);
 	}
+	graphLinkContext.globalAlpha = 1;
+}
+
+function drawGraphGeometry() {
+	if (!graphWidth || !graphHeight) return;
+	const canvas = graphCanvas.node();
+	prepareGraphContext(graphContext, canvas);
+	const bounds = graphViewportBounds(32);
 
 	graphContext.lineWidth = 2;
 	graphContext.strokeStyle = "#c64f5f";
 	graphContext.setLineDash([3, 3]);
 	for (const node of state.graphData.nodes) {
-		if (!node.deaths) continue;
+		if (!node.deaths || !graphNodeIsVisible(node, bounds)) continue;
 		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
 		graphContext.beginPath();
 		graphContext.arc(node.x, node.y, graphNodeRadius(node) + 5, 0, Math.PI * 2);
@@ -304,7 +373,7 @@ function drawGraph() {
 	graphContext.strokeStyle = COLORS.Other;
 	graphContext.setLineDash([]);
 	for (const node of state.graphData.nodes) {
-		if (!node.isWinner) continue;
+		if (!node.isWinner || !graphNodeIsVisible(node, bounds)) continue;
 		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
 		graphContext.beginPath();
 		graphContext.arc(node.x, node.y, graphNodeRadius(node) + (node.deaths ? 9 : 5), 0, Math.PI * 2);
@@ -312,6 +381,7 @@ function drawGraph() {
 	}
 
 	for (const node of state.graphData.nodes) {
+		if (!graphNodeIsVisible(node, bounds)) continue;
 		const isFocused = node.id === graphActiveNodeId;
 		const fill = node.isExternal ? "#17211f" : COLORS[node.genderLabel];
 		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
@@ -323,25 +393,70 @@ function drawGraph() {
 		graphContext.fill();
 		graphContext.stroke();
 	}
+	graphContext.globalAlpha = 1;
+}
 
-	graphContext.font = '600 9px "DM Mono", monospace';
-	graphContext.textBaseline = "alphabetic";
-	graphContext.lineJoin = "round";
-	graphContext.lineWidth = 4;
-	graphContext.strokeStyle = "rgba(244, 241, 234, 0.94)";
-	graphContext.fillStyle = "#17211f";
+function drawGraphLabels() {
+	if (!graphWidth || !graphHeight) return;
+	const canvas = graphLabelCanvas.node();
+	prepareGraphContext(graphLabelContext, canvas);
+	const bounds = graphViewportBounds(220);
+	graphLabelContext.font = '600 9px "DM Mono", monospace';
+	graphLabelContext.textBaseline = "alphabetic";
+	graphLabelContext.lineJoin = "round";
+	graphLabelContext.lineWidth = 4;
+	graphLabelContext.strokeStyle = "rgba(244, 241, 234, 0.94)";
+	graphLabelContext.fillStyle = "#17211f";
 	for (const node of state.graphData.nodes) {
+		if (!graphNodeIsVisible(node, bounds)) continue;
 		const isMuted = graphTransform.k < 1.1 && node.degree === 0 &&
 			node.id !== state.graphNodeId && node.id !== graphDraggingNodeId &&
 			node.id !== graphHoveredNodeId;
 		if (isMuted) continue;
-		graphContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
+		graphLabelContext.globalAlpha = graphActiveNodeId && !graphRelatedNodeIds.has(node.id) ? 0.1 : 1;
 		const x = node.x + graphNodeRadius(node) + 6;
 		const y = node.y + 3;
-		graphContext.strokeText(node.name, x, y);
-		graphContext.fillText(node.name, x, y);
+		graphLabelContext.strokeText(node.name, x, y);
+		graphLabelContext.fillText(node.name, x, y);
 	}
-	graphContext.globalAlpha = 1;
+	graphLabelContext.globalAlpha = 1;
+}
+
+function drawGraph() {
+	if (graphDrawFrame !== null) {
+		cancelAnimationFrame(graphDrawFrame);
+		graphDrawFrame = null;
+	}
+	drawGraphLinkLayer();
+	drawGraphGeometry();
+	drawGraphLabels();
+	const now = performance.now();
+	graphLastLinkDraw = now;
+	graphLastGeometryDraw = now;
+	graphLastLabelDraw = now;
+}
+
+function requestGraphDraw(forceLabels = false) {
+	if (graphDrawFrame !== null) return;
+	graphDrawFrame = requestAnimationFrame(now => {
+		graphDrawFrame = null;
+		const useDenseCadence = isGraphDense() && isGraphMoving();
+		const cadence = isGraphVeryDense()
+			? GRAPH_RENDER_CADENCE.veryDense
+			: GRAPH_RENDER_CADENCE.dense;
+		if (!useDenseCadence || now - graphLastLinkDraw >= cadence.links) {
+			drawGraphLinkLayer();
+			graphLastLinkDraw = now;
+		}
+		if (!useDenseCadence || now - graphLastGeometryDraw >= cadence.geometry) {
+			drawGraphGeometry();
+			graphLastGeometryDraw = now;
+		}
+		if (forceLabels || !useDenseCadence || now - graphLastLabelDraw >= cadence.labels) {
+			drawGraphLabels();
+			graphLastLabelDraw = now;
+		}
+	});
 }
 
 function saveGraphPositions(nodes = graphSimulation?.nodes() || []) {
@@ -351,36 +466,29 @@ function saveGraphPositions(nodes = graphSimulation?.nodes() || []) {
 }
 
 function ensureGraphScene() {
-	if (graphLayers) return;
-
-	const background = graphSvg.append("rect")
-		.attr("class", "graph-background")
-		.attr("fill", "transparent");
-	const viewport = graphSvg.append("g").attr("class", "graph-viewport");
-	graphLayers = {
-		background,
-		viewport,
-		hits: viewport.append("g").attr("class", "graph-node-hits")
-	};
+	if (graphSceneReady) return;
+	graphSceneReady = true;
 
 	graphZoom = d3.zoom()
 		.scaleExtent([0.25, 4])
+		.filter(graphZoomFilter)
 		.on("zoom", event => {
 			graphTransform = event.transform;
-			viewport.attr("transform", graphTransform);
-			drawGraph();
-		});
-	graphSvg.call(graphZoom).on("dblclick.zoom", null);
-	graphSvg.on("click", event => {
-		if (event.target === graphSvg.node() || event.target === background.node()) {
-			selectGraphNode(null);
-		}
-	});
+			requestGraphDraw();
+		})
+		.on("end", () => drawGraph());
+	graphCanvas
+		.call(graphZoom)
+		.call(graphDragBehavior())
+		.on("dblclick.zoom", null)
+		.on("pointermove.graph", graphPointerMoved)
+		.on("pointerleave.graph", graphPointerLeft)
+		.on("click.graph", graphClicked);
 	document.fonts?.ready.then(drawGraph);
 }
 
 function updateGraphFocus() {
-	if (!graphLayers) return;
+	if (!graphSceneReady) return;
 	const activeId = graphDraggingNodeId || graphHoveredNodeId || state.graphNodeId;
 	const relatedNodes = new Set(activeId ? [activeId] : []);
 
@@ -428,39 +536,108 @@ function selectGraphNode(nodeId) {
 
 function graphDragBehavior() {
 	return d3.drag()
-		.on("start", (event, node) => {
+		.container(graphCanvas.node())
+		.subject(event => {
+			const node = graphNodeAtPoint(event.x, event.y);
+			return node ? {
+				node,
+				x: graphTransform.applyX(node.x),
+				y: graphTransform.applyY(node.y)
+			} : null;
+		})
+		.on("start", event => {
+			const node = event.subject.node;
 			event.sourceEvent.stopPropagation();
 			node.wasDragged = false;
 			if (!event.active) graphSimulation.alphaTarget(0.18).restart();
 			node.fx = node.x;
 			node.fy = node.y;
 		})
-		.on("drag", (event, node) => {
+		.on("drag", event => {
+			const node = event.subject.node;
 			if (!node.wasDragged) {
 				graphDraggingNodeId = node.id;
 				updateGraphFocus();
 			}
 			node.wasDragged = true;
-			node.fx = event.x;
-			node.fy = event.y;
+			[node.fx, node.fy] = graphTransform.invert([event.x, event.y]);
 		})
-		.on("end", (event, node) => {
+		.on("end", event => {
+			const node = event.subject.node;
 			if (!event.active) graphSimulation.alphaTarget(0);
 			node.fx = null;
 			node.fy = null;
 			graphDraggingNodeId = null;
 			if (node.wasDragged) updateGraphFocus();
 			else selectGraphNode(node.id);
+			drawGraph();
 		});
 }
 
-function graphTicked() {
-	if (!graphLayers) return;
-	for (const hit of graphHitNodes) {
-		hit.cx.baseVal.value = hit.__data__.x;
-		hit.cy.baseVal.value = hit.__data__.y;
+function graphNodeAtPoint(x, y) {
+	const [graphX, graphY] = graphTransform.invert([x, y]);
+	for (let index = state.graphData.nodes.length - 1; index >= 0; index -= 1) {
+		const node = state.graphData.nodes[index];
+		const hitRadius = Math.max(graphNodeRadius(node) + 2, 8 / graphTransform.k);
+		const dx = node.x - graphX;
+		const dy = node.y - graphY;
+		if (dx * dx + dy * dy <= hitRadius * hitRadius) return node;
 	}
-	drawGraph();
+	return null;
+}
+
+function graphEventPoint(event) {
+	const source = event.touches?.[0] || event.changedTouches?.[0] || event;
+	return d3.pointer(source, graphCanvas.node());
+}
+
+function graphNodeAtEvent(event) {
+	return graphNodeAtPoint(...graphEventPoint(event));
+}
+
+function graphZoomFilter(event) {
+	if (event.button || (event.ctrlKey && event.type !== "wheel")) return false;
+	if (event.type === "mousedown") return !graphNodeAtEvent(event);
+	if (event.type === "touchstart" && event.touches.length === 1) return !graphNodeAtEvent(event);
+	return true;
+}
+
+function graphPointerMoved(event) {
+	if (event.pointerType === "touch" || graphDraggingNodeId) return;
+	const node = graphNodeAtEvent(event);
+	const nodeId = node?.id || null;
+	graphCanvas.style("cursor", node ? "pointer" : event.buttons ? "grabbing" : "grab");
+	if (nodeId === graphHoveredNodeId) return;
+	graphHoveredNodeId = nodeId;
+	updateGraphFocus();
+}
+
+function graphPointerLeft(event) {
+	if (event.pointerType === "touch" || graphDraggingNodeId || !graphHoveredNodeId) return;
+	graphHoveredNodeId = null;
+	graphCanvas.style("cursor", "grab");
+	updateGraphFocus();
+}
+
+function graphClicked(event) {
+	const node = graphNodeAtEvent(event);
+	if (node?.wasDragged) {
+		node.wasDragged = false;
+		return;
+	}
+	selectGraphNode(node?.id || null);
+}
+
+function graphTicked() {
+	if (!graphSceneReady) return;
+	if (graphCollisionForce && isGraphDense()) {
+		const iterations = graphSimulation.alpha() > 0.22 ? 1 : 2;
+		if (iterations !== graphCollisionIterations) {
+			graphCollisionIterations = iterations;
+			graphCollisionForce.iterations(iterations);
+		}
+	}
+	requestGraphDraw();
 }
 
 function fitGraph(duration = 0) {
@@ -480,20 +657,19 @@ function fitGraph(duration = 0) {
 		.translate(graphWidth / 2, graphHeight / 2)
 		.scale(scale)
 		.translate(-centerX, -centerY);
-	const target = duration ? graphSvg.transition().duration(duration) : graphSvg;
+	const target = duration ? graphCanvas.transition().duration(duration) : graphCanvas;
 	target.call(graphZoom.transform, transform);
 }
 
 function resizeGraph() {
-	if (!graphLayers) return;
+	if (!graphSceneReady) return;
 	graphWidth = graphStage.node().clientWidth || 1100;
 	graphHeight = graphStage.node().clientHeight || 620;
-	graphPixelRatio = Math.max(1, window.devicePixelRatio || 1);
-	const canvas = graphCanvas.node();
-	canvas.width = Math.round(graphWidth * graphPixelRatio);
-	canvas.height = Math.round(graphHeight * graphPixelRatio);
-	graphSvg.attr("viewBox", `0 0 ${graphWidth} ${graphHeight}`);
-	graphLayers.background.attr("width", graphWidth).attr("height", graphHeight);
+	graphPixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+	for (const canvas of [graphLinkCanvas.node(), graphCanvas.node(), graphLabelCanvas.node()]) {
+		canvas.width = Math.round(graphWidth * graphPixelRatio);
+		canvas.height = Math.round(graphHeight * graphPixelRatio);
+	}
 
 	if (graphSimulation) {
 		graphSimulation
@@ -508,6 +684,8 @@ function updateGraph(graphData) {
 	saveGraphPositions();
 	resizeGraph();
 	const previousNodeIds = new Set(graphSimulation?.nodes().map(node => node.id) || []);
+	const denseGraph = isGraphDense();
+	const veryDenseGraph = isGraphVeryDense();
 
 	graphData.nodes.forEach((node, index) => {
 		const saved = graphPositions.get(node.id);
@@ -520,47 +698,31 @@ function updateGraph(graphData) {
 		}
 	});
 
-	graphNodeHits = graphLayers.hits.selectAll("circle.graph-node-hit")
-		.data(graphData.nodes, node => node.id)
-		.join("circle")
-		.attr("class", "graph-node-hit")
-		.attr("r", node => graphNodeRadius(node) + 2)
-		.call(graphDragBehavior())
-		.on("pointerenter", (event, node) => {
-			if (event.pointerType === "touch") return;
-			graphHoveredNodeId = node.id;
-			updateGraphFocus();
-		})
-		.on("pointerleave", event => {
-			if (event.pointerType === "touch") return;
-			graphHoveredNodeId = null;
-			updateGraphFocus();
-		})
-		.on("click", (event, node) => {
-			event.stopPropagation();
-			if (node.wasDragged) {
-				node.wasDragged = false;
-				return;
-			}
-			selectGraphNode(node.id);
-		});
-	graphHitNodes = graphNodeHits.nodes();
-
 	if (!graphSimulation) {
 		graphSimulation = d3.forceSimulation()
 			.on("tick", graphTicked)
-			.on("end", () => saveGraphPositions());
+			.on("end", () => {
+				saveGraphPositions();
+				drawGraph();
+			});
 	}
+	graphCollisionIterations = denseGraph ? 1 : 2;
+	graphCollisionForce = d3.forceCollide(node => graphNodeRadius(node) + 8)
+		.strength(0.9)
+		.iterations(graphCollisionIterations);
 	graphSimulation
 		.nodes(graphData.nodes)
 		.force("link", d3.forceLink(graphData.links)
 			.id(node => node.id)
 			.distance(GRAPH_FORCE.linkDistance)
 			.strength(GRAPH_FORCE.linkStrength))
-		.force("charge", d3.forceManyBody().strength(GRAPH_FORCE.charge))
+		.force("charge", d3.forceManyBody()
+			.strength(GRAPH_FORCE.charge)
+			.theta(veryDenseGraph ? 1.1 : denseGraph ? 1 : 0.9))
 		.force("x", d3.forceX(graphWidth / 2).strength(GRAPH_FORCE.center))
 		.force("y", d3.forceY(graphHeight / 2).strength(GRAPH_FORCE.center))
-		.force("collision", d3.forceCollide(node => graphNodeRadius(node) + 8).strength(0.9).iterations(2))
+		.force("collision", graphCollisionForce)
+		.alphaDecay(1 - Math.pow(0.001, 1 / (veryDenseGraph ? 220 : denseGraph ? 250 : 300)))
 		.alpha(previousNodeIds.size ? 0.72 : 1);
 
 	if (state.activeView === "graph") graphSimulation.restart();

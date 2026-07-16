@@ -317,8 +317,9 @@ select:disabled {
 	overscroll-behavior: contain;
 }
 
+#graph-link-canvas,
 #graph-canvas,
-#graph-chart {
+#graph-label-canvas {
 	position: absolute;
 	inset: 0;
 	display: block;
@@ -326,23 +327,18 @@ select:disabled {
 	height: 100%;
 }
 
-#graph-canvas {
+#graph-link-canvas,
+#graph-label-canvas {
 	pointer-events: none;
 }
 
-#graph-chart {
+#graph-canvas {
 	cursor: grab;
 	touch-action: none;
 }
 
-#graph-chart:active {
+#graph-canvas:active {
 	cursor: grabbing;
-}
-
-.graph-node-hit {
-	cursor: pointer;
-	fill: transparent;
-	pointer-events: all;
 }
 
 .graph-footer {
