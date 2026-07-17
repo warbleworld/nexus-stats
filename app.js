@@ -87,9 +87,18 @@ const deriveGraphData = GraphModel.deriveGraphData;
 // ─────────────────────────────────────────────
 
 function graphStatus(node) {
-	if (node.deaths) return "Self-eliminated";
-	if (node.eliminations) return "Eliminated";
+	if (node.placement != null) return `${node.placement}${ordinalSuffix(node.placement)} place`;
 	return "No elimination recorded";
+}
+
+function ordinalSuffix(n) {
+	const mod100 = n % 100;
+	if (mod100 >= 11 && mod100 <= 13) return "th";
+	const mod10 = n % 10;
+	if (mod10 === 1) return "st";
+	if (mod10 === 2) return "nd";
+	if (mod10 === 3) return "rd";
+	return "th";
 }
 
 function resetGraphDetail() {
@@ -105,10 +114,16 @@ function updateGraphDetail(node) {
 	if (node.isWinner) titleParts.push("Season winner");
 	detail.select(".graph-detail-name").text(titleParts.join(" · "));
 	detail.select(".graph-detail-source").text(node.mediaSource);
-	const metrics = [`${node.kills} ${node.kills === 1 ? "kill" : "kills"}`];
+	const metrics = [];
+	const shouldShowKills = node.event !== "Nexus House" || node.kills > 0;
+	if (shouldShowKills) metrics.push(`${node.kills} ${node.kills === 1 ? "kill" : "kills"}`);
 	if (node.assists) metrics.push(`${node.assists} ${node.assists === 1 ? "assist" : "assists"}`);
 	if (node.degree) metrics.push(`${node.degree} ${node.degree === 1 ? "link" : "links"}`);
-	metrics.push(graphStatus(node));
+	const hohWins = node.metrics?.hohWin || 0;
+	const povWins = node.metrics?.povWin || 0;
+	if (hohWins) metrics.push(`${hohWins} ${hohWins === 1 ? "HOH win" : "HOH wins"}`);
+	if (povWins) metrics.push(`${povWins} ${povWins === 1 ? "POV win" : "POV wins"}`);
+	if (!node.isExternal) metrics.push(graphStatus(node));
 	detail.select(".graph-detail-meta").text(metrics.join(" · "));
 }
 

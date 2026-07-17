@@ -61,3 +61,38 @@ test("accepts future event definitions without model changes", () => {
 	assert.equal(graph.nodes[0].metrics.protections, 1);
 	assert.equal(graph.nodes[1].metrics.protectionsReceived, 1);
 });
+
+test("maps Win events to competition metrics based on target", () => {
+	const graph = deriveGraphData(entrants, [
+		{ ID: 1, Event: "E", Season: 1, Source: "A", Type: "Win", Target: "HOH Comp" },
+		{ ID: 2, Event: "E", Season: 1, Source: "A", Type: "Win", Target: "POV Comp" },
+	]);
+
+	assert.equal(graph.nodes[0].metrics.hohWin, 1);
+	assert.equal(graph.nodes[0].metrics.povWin, 1);
+	assert.equal(graph.links.length, 0);
+	assert.equal(graph.errors.length, 0);
+});
+
+test("treats Vote events as node events with no rendered links", () => {
+	const graph = deriveGraphData(entrants, [
+		{ ID: 1, Event: "E", Season: 1, Source: "A", Type: "Vote", Target: "B" }
+	]);
+
+	assert.equal(graph.links.length, 0);
+	assert.equal(graph.nodes[0].metrics.votes, 1);
+	assert.equal(graph.nodes[1].metrics.votesReceived, undefined);
+	assert.equal(graph.errors.length, 0);
+});
+
+test("treats competition statuses as node events", () => {
+	const graph = deriveGraphData(entrants, [
+		{ ID: 1, Event: "E", Season: 1, Source: "A", Type: "Play", Target: "HOH Comp" },
+		{ ID: 2, Event: "E", Season: 1, Source: "A", Type: "Not Picked", Target: "POV Comp" },
+		{ ID: 3, Event: "E", Season: 1, Source: "A", Type: "Not Eligible", Target: "HOH Comp" }
+	]);
+
+	assert.equal(graph.errors.length, 0);
+	assert.equal(graph.links.length, 0);
+	assert.equal(graph.nodes[0].annotations.length, 3);
+});

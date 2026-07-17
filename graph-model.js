@@ -35,15 +35,24 @@
 			targetMetric: "vetosReceived"
 		},
 		Vote: {
-			kind: "edge",
-			style: "vote",
-			direction: "forward",
-			sourceMetric: "votes",
-			targetMetric: "votesReceived"
+			kind: "node",
+			nodeMetric: "votes"
+		},
+        "Jury Vote": {
+			kind: "node",
+			nodeMetric: "votes"
 		},
 		Death: { kind: "node", nodeMetric: "deaths" },
-		HOH: { kind: "node", nodeMetric: "hohWins" },
-		POV: { kind: "node", nodeMetric: "povWins" }
+		Win: {
+			kind: "node",
+			nodeMetricByTarget: {
+				"hoh comp": "hohWin",
+				"pov comp": "povWin"
+			}
+		},
+		Play: { kind: "node" },
+		"Not Picked": { kind: "node" },
+		"Not Eligible": { kind: "node" }
 	});
 
 	function entrantLookupKey(event, season, name) {
@@ -58,6 +67,21 @@
 		if (!metric) return;
 		node.metrics[metric] = (node.metrics[metric] || 0) + 1;
 		if (Object.prototype.hasOwnProperty.call(node, metric)) node[metric] += 1;
+	}
+
+	function resolveNodeMetric(definition, target) {
+		if (!definition || definition.kind !== "node") return null;
+		if (definition.nodeMetric) return definition.nodeMetric;
+		if (!definition.nodeMetricByTarget) return null;
+		const normalizedTarget = String(target || "").trim().toLowerCase();
+		if (Object.prototype.hasOwnProperty.call(definition.nodeMetricByTarget, normalizedTarget)) {
+			return definition.nodeMetricByTarget[normalizedTarget];
+		}
+        // Fallback checks for case-insensitive matches
+		for (const [candidate, metric] of Object.entries(definition.nodeMetricByTarget)) {
+			if (String(candidate).trim().toLowerCase() === normalizedTarget) return metric;
+		}
+		return null;
 	}
 
 	function assignLinkRoutes(links) {
@@ -97,6 +121,7 @@
 			season:       person.Season,
 			genderLabel:  person.GenderLabel,
 			isWinner:     person.IsWinner,
+			placement:    person.Placement ?? null,
 			isExternal:   false,
 			kills:        0,
 			assists:      0,
@@ -147,8 +172,6 @@
 		};
 
 		logs.forEach(log => {
-            if (log.Event === "Nexus House") return;
-
 			const definition = eventTypes[log.Type] || (log.Target
 				? { kind: "edge", style: "relationship", direction: "forward" }
 				: { kind: "node", nodeMetric: "events" });
@@ -159,7 +182,7 @@
 			}
 
 			if (definition.kind === "node") {
-				incrementMetric(source, definition.nodeMetric);
+				incrementMetric(source, resolveNodeMetric(definition, log.Target));
 				source.annotations.push({ id: `log-${log.ID}`, type: log.Type, day: log.Day || null });
 				return;
 			}
