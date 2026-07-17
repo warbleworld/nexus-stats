@@ -472,6 +472,7 @@ select:disabled {
 
 .timeline-label {
 	cursor: pointer;
+	touch-action: manipulation;
 	transition: opacity 180ms ease;
 }
 
@@ -481,7 +482,6 @@ select:disabled {
 	stroke-width: 1px;
 }
 
-.timeline-label:hover rect,
 .timeline-label.is-selected rect {
 	fill: rgba(228, 167, 44, 0.11);
 }
@@ -582,9 +582,18 @@ select:disabled {
 .timeline-marker.is-vote path { fill: #64706d; }
 .timeline-marker.is-jury path { fill: var(--jury); }
 
-.timeline-marker.is-selected,
-.timeline-marker:hover {
+.timeline-marker.is-selected {
 	filter: drop-shadow(0 2px 5px rgba(23, 33, 31, 0.35));
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.timeline-label:hover rect {
+		fill: rgba(228, 167, 44, 0.11);
+	}
+
+	.timeline-marker:hover {
+		filter: drop-shadow(0 2px 5px rgba(23, 33, 31, 0.35));
+	}
 }
 
 .timeline-marker.is-current:not(.is-future) path {

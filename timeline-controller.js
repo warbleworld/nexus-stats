@@ -83,6 +83,9 @@
 			this.visible = false;
 			this.laneY = new Map();
 			this.dayX = null;
+			this.supportsHover = typeof window !== "undefined" && typeof window.matchMedia === "function"
+				? window.matchMedia("(hover: hover) and (pointer: fine)").matches
+				: false;
 
 			this.previousButton.addEventListener("click", () => this.step(-1));
 			this.nextButton.addEventListener("click", () => this.step(1));
@@ -92,6 +95,10 @@
 				this.setDay(Number(event.target.value), true);
 			});
 			this.chartSvg.on("click.timeline", () => this.clearSelection());
+		}
+
+		canHover(event) {
+			return this.supportsHover && (!event?.pointerType || event.pointerType === "mouse");
 		}
 
 		setData(data) {
@@ -184,8 +191,14 @@
 					return group;
 				})
 				.attr("transform", lane => `translate(0,${this.laneY.get(lane.id) - ROW_HEIGHT / 2})`)
-				.on("pointerenter", (event, lane) => this.focusLane(lane))
-				.on("pointerleave", () => this.restoreFocus())
+				.on("pointerenter", (event, lane) => {
+					if (!this.canHover(event)) return;
+					this.focusLane(lane);
+				})
+				.on("pointerleave", event => {
+					if (!this.canHover(event)) return;
+					this.restoreFocus();
+				})
 				.on("click", (event, lane) => {
 					event.stopPropagation();
 					this.selectedItemId = null;
@@ -256,11 +269,16 @@
 				.attr("transform", beat => `translate(${this.dayX(beat.day)},28)`)
 				.classed("is-major", beat => beat.impact >= 5)
 				.on("pointerenter", (event, beat) => {
+					if (!this.canHover(event)) return;
 					this.renderBeatDetail(beat);
 					this.options.showTooltip?.(event, beat.title, `Day ${beat.day} / ${beat.detail}`);
 				})
-				.on("pointermove", event => this.options.moveTooltip?.(event))
-				.on("pointerleave", () => {
+				.on("pointermove", event => {
+					if (!this.canHover(event)) return;
+					this.options.moveTooltip?.(event);
+				})
+				.on("pointerleave", event => {
+					if (!this.canHover(event)) return;
 					this.options.hideTooltip?.();
 					this.restoreDetail();
 				})
@@ -342,12 +360,17 @@
 				.attr("class", item => `timeline-marker is-${item.kind}`)
 				.attr("transform", item => `translate(${this.dayX(item.day)},${markerY(item)})`)
 				.on("pointerenter", (event, item) => {
+					if (!this.canHover(event)) return;
 					this.hoveredItemId = item.id;
 					this.focusItem(item);
 					this.options.showTooltip?.(event, item.title, `Day ${item.day} / ${item.detail}`);
 				})
-				.on("pointermove", event => this.options.moveTooltip?.(event))
-				.on("pointerleave", () => {
+				.on("pointermove", event => {
+					if (!this.canHover(event)) return;
+					this.options.moveTooltip?.(event);
+				})
+				.on("pointerleave", event => {
+					if (!this.canHover(event)) return;
 					this.hoveredItemId = null;
 					this.options.hideTooltip?.();
 					this.restoreFocus();

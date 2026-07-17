@@ -213,8 +213,11 @@ function updateTimeline() {
 }
 
 function setActiveView(view) {
+	const previousEvent = state.event;
+	const previousSeason = state.season;
 	state.activeView = view;
 	if (view === "timeline") ensureTimelineScope();
+	const scopeChanged = state.event !== previousEvent || state.season !== previousSeason;
 	updateEventOptions();
 	updateSeasonOptions();
 	d3.select(".eyebrow").text(
@@ -229,7 +232,11 @@ function setActiveView(view) {
 	ensureModernGraph().setVisible(view === "graph");
 	if (timelineController) timelineController.setVisible(view === "timeline");
 	if (view === "timeline") {
-		applyFilters();
+		if (scopeChanged || !state.timelineData) {
+			applyFilters();
+		} else {
+			updateTimeline();
+		}
 		ensureTimeline().setVisible(true);
 	}
 	if (view === "analytics") {
