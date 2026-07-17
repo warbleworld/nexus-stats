@@ -96,3 +96,16 @@ test("treats competition statuses as node events", () => {
 	assert.equal(graph.links.length, 0);
 	assert.equal(graph.nodes[0].annotations.length, 3);
 });
+
+test("treats Veto with missing target as veto not used", () => {
+	const graph = deriveGraphData(entrants, [
+		{ ID: 1, Event: "E", Season: 1, Source: "A", Type: "Veto", Target: "-" },
+		{ ID: 2, Event: "E", Season: 1, Source: "A", Type: "Veto", Target: "" }
+	]);
+
+	assert.equal(graph.errors.length, 0);
+	assert.equal(graph.links.length, 0);
+	assert.equal(graph.nodes[0].metrics.vetosUnused, 2);
+	assert.equal(graph.nodes[0].annotations.length, 2);
+	assert.equal(graph.nodes[0].annotations[0].type, "Veto Unused");
+});

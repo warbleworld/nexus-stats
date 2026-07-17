@@ -69,6 +69,11 @@
 		if (Object.prototype.hasOwnProperty.call(node, metric)) node[metric] += 1;
 	}
 
+	function isMissingEdgeTarget(value) {
+		const normalized = String(value == null ? "" : value).trim().toLowerCase();
+		return normalized === "" || normalized === "-" || normalized === "n/a" || normalized === "none";
+	}
+
 	function resolveNodeMetric(definition, target) {
 		if (!definition || definition.kind !== "node") return null;
 		if (definition.nodeMetric) return definition.nodeMetric;
@@ -184,6 +189,12 @@
 			if (definition.kind === "node") {
 				incrementMetric(source, resolveNodeMetric(definition, log.Target));
 				source.annotations.push({ id: `log-${log.ID}`, type: log.Type, day: log.Day || null });
+				return;
+			}
+
+			if (log.Type === "Veto" && isMissingEdgeTarget(log.Target)) {
+				incrementMetric(source, "vetosUnused");
+				source.annotations.push({ id: `log-${log.ID}`, type: "Veto Unused", day: log.Day || null });
 				return;
 			}
 
