@@ -53,6 +53,7 @@
 
 		<div class="view-tabs" role="tablist" aria-label="Archive view">
 			<button class="view-tab is-active" id="graph-tab" type="button" role="tab" aria-selected="true" aria-controls="graph-view" data-view="graph">Graph</button>
+			<button class="view-tab" id="timeline-tab" type="button" role="tab" aria-selected="false" aria-controls="timeline-view" data-view="timeline">Timeline</button>
 			<button class="view-tab" id="analytics-tab" type="button" role="tab" aria-selected="false" aria-controls="analytics-view" data-view="analytics">Analytics</button>
 		</div>
 
@@ -87,6 +88,55 @@
 						<div class="graph-detail-meta">—</div>
 					</div>
 				</div>
+			</article>
+		</section>
+
+		<section class="view-panel" id="timeline-view" role="tabpanel" aria-labelledby="timeline-tab" hidden>
+			<article class="timeline-panel">
+				<header class="timeline-header">
+					<div>
+						<p class="panel-kicker">Contestant chronology</p>
+						<h2>Season timeline</h2>
+					</div>
+					<p class="timeline-summary" id="timeline-summary">Choose a complete season</p>
+				</header>
+				<div class="timeline-toolbar">
+					<div class="timeline-playback" aria-label="Timeline playback">
+						<button class="timeline-icon-button" id="timeline-previous" type="button" title="Previous day" aria-label="Previous day">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+						</button>
+						<button class="timeline-icon-button is-primary" id="timeline-play" type="button" title="Play timeline" aria-label="Play timeline" data-state="paused">
+							<svg class="timeline-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"></path></svg>
+							<svg class="timeline-pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14"></path></svg>
+						</button>
+						<button class="timeline-icon-button" id="timeline-next" type="button" title="Next day" aria-label="Next day">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+						</button>
+					</div>
+					<div class="timeline-scrubber">
+						<label id="timeline-day-label" for="timeline-day-range">Day 1</label>
+						<input id="timeline-day-range" type="range" min="1" max="1" value="1">
+					</div>
+				</div>
+				<div class="timeline-story-rail" id="timeline-story-rail" aria-label="Season turning points"></div>
+				<div class="timeline-board">
+					<div class="timeline-labels-wrap">
+						<svg id="timeline-labels" aria-label="Timeline contestant labels"></svg>
+					</div>
+					<div class="timeline-scroll" id="timeline-scroll">
+						<svg id="timeline-chart" role="img" aria-label="Contestant events arranged by day"></svg>
+					</div>
+				</div>
+				<footer class="timeline-footer">
+					<div class="timeline-legend" id="timeline-legend" aria-label="Timeline legend"></div>
+					<div class="timeline-detail" id="timeline-detail">
+						<div>
+							<div class="timeline-detail-name">Select an event</div>
+							<div class="timeline-detail-source">Inspect a turning point</div>
+						</div>
+						<div class="timeline-detail-meta">Season chronology</div>
+					</div>
+				</footer>
 			</article>
 		</section>
 
@@ -147,6 +197,8 @@
 	<script src="graph-model.js"></script>
 	<script src="graph-renderer.js"></script>
 	<script src="graph-controller.js"></script>
+	<script src="timeline-model.js"></script>
+	<script src="timeline-controller.js"></script>
 	<script src="app.js"></script>
 </body>
 </html>

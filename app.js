@@ -28,6 +28,8 @@ const state = {
 	detailPersonId: null,
 	graphData:    { nodes: [], links: [], errors: [] },
 	graphNodeId:  null,
+	timelineScopes: [],
+	timelineData: null,
 	activeView:   "graph"
 };
 
@@ -43,6 +45,7 @@ const rosterSvg    = d3.select("#roster-chart");
 const trendSvg     = d3.select("#trend-chart");
 const graphCanvas  = d3.select("#graph-canvas");
 const graphStage   = d3.select("#graph-stage");
+const timelineRoot = document.querySelector("#timeline-view");
 
 // ─────────────────────────────────────────────
 // Utilities
@@ -81,6 +84,8 @@ function trendData() {
 }
 
 const deriveGraphData = GraphModel.deriveGraphData;
+const deriveTimelineData = TimelineModel.deriveTimelineData;
+const getTimelineScopes = TimelineModel.getTimelineScopes;
 
 // ─────────────────────────────────────────────
 // Elimination graph
@@ -170,17 +175,63 @@ function updateGraph(graphData) {
 	else resetGraphDetail();
 }
 
+// ─────────────────────────────────────────────
+// Season timeline
+// ─────────────────────────────────────────────
+
+let timelineController = null;
+
+function ensureTimeline() {
+	if (timelineController) return timelineController;
+	timelineController = new TimelineController(timelineRoot, {
+		showTooltip,
+		moveTooltip,
+		hideTooltip
+	});
+	return timelineController;
+}
+
+function timelineScopeReady(event = state.event, season = state.season) {
+	return state.timelineScopes.some(scope => (
+		scope.ready && scope.event === event && scope.season === Number(season)
+	));
+}
+
+function ensureTimelineScope() {
+	if (timelineScopeReady()) return;
+	const fallback = state.timelineScopes.find(scope => (
+		scope.ready && scope.event === "Nexus Games" && scope.season === 1
+	)) || state.timelineScopes.find(scope => scope.ready);
+	if (!fallback) return;
+	state.event = fallback.event;
+	state.season = fallback.season;
+}
+
+function updateTimeline() {
+	if (!state.timelineData) return;
+	ensureTimeline().setData(state.timelineData);
+}
+
 function setActiveView(view) {
 	state.activeView = view;
+	if (view === "timeline") ensureTimelineScope();
+	updateEventOptions();
+	updateSeasonOptions();
 	d3.select(".eyebrow").text(
-		`Roster intelligence / ${view === "graph" ? "elimination study" : "gender study"}`
+		`Roster intelligence / ${view === "graph" ? "elimination study" : view === "timeline" ? "season chronology" : "gender study"}`
 	);
 	d3.selectAll(".view-tab")
 		.classed("is-active", function() { return this.dataset.view === view; })
 		.attr("aria-selected", function() { return this.dataset.view === view ? "true" : "false"; });
 	d3.select("#graph-view").property("hidden", view !== "graph");
+	d3.select("#timeline-view").property("hidden", view !== "timeline");
 	d3.select("#analytics-view").property("hidden", view !== "analytics");
 	ensureModernGraph().setVisible(view === "graph");
+	if (timelineController) timelineController.setVisible(view === "timeline");
+	if (view === "timeline") {
+		applyFilters();
+		ensureTimeline().setVisible(true);
+	}
 	if (view === "analytics") {
 		updateRoster(state.filteredData, rosterSvg.node().clientWidth || 680, false);
 		updateTrend(false, trendSvg.node().clientWidth || 1000);
@@ -263,7 +314,40 @@ function animateTransform(node, target, start, duration, onFinish, delay = 0) {
 // Filters / state management
 // ─────────────────────────────────────────────
 
+function updateEventOptions() {
+	const allEvents = Array.from(new Set(state.allData.map(person => person.Event))).sort(d3.ascending);
+	const values = state.activeView === "timeline"
+		? allEvents.filter(event => state.timelineScopes.some(scope => scope.event === event && scope.ready))
+		: ["all", ...allEvents];
+	eventFilter.selectAll("option")
+		.data(values, value => value)
+		.join("option")
+		.attr("value", value => value)
+		.text(value => value === "all" ? "All events" : value);
+	eventFilter.property("value", state.event);
+}
+
 function updateSeasonOptions() {
+	if (state.activeView === "timeline") {
+		const scopes = state.timelineScopes.filter(scope => scope.event === state.event);
+		const ready = scopes.filter(scope => scope.ready);
+		if (!ready.some(scope => scope.season === Number(state.season)) && ready.length) {
+			state.season = ready[0].season;
+		}
+		seasonFilter
+			.property("disabled", ready.length === 0)
+			.selectAll("option")
+			.data(scopes, scope => scope.season)
+			.join("option")
+			.attr("value", scope => scope.season)
+			.property("disabled", scope => !scope.ready)
+			.text(scope => scope.ready
+				? `Season ${scope.season}`
+				: `Season ${scope.season} - ${scope.reason}`);
+		seasonFilter.property("value", state.season);
+		return;
+	}
+
 	const available = state.event === "all"
 		? []
 		: Array.from(new Set(
@@ -278,6 +362,7 @@ function updateSeasonOptions() {
 		.data(["all", ...available], v => v)
 		.join("option")
 		.attr("value", v => v)
+		.property("disabled", false)
 		.text(v => v === "all" ? "All seasons" : `Season ${v}`);
 
 	if (!available.includes(state.season)) state.season = "all";
@@ -296,6 +381,9 @@ function applyFilters() {
 		return matchesEvent && matchesSeason;
 	});
 	state.graphData = deriveGraphData(state.filteredData, filteredLogs);
+	state.timelineData = timelineScopeReady()
+		? deriveTimelineData(state.filteredData, filteredLogs, state.event, state.season)
+		: null;
 	if (!state.graphData.nodes.some(node => node.id === state.graphNodeId)) {
 		state.graphNodeId = null;
 	}
@@ -318,6 +406,7 @@ function applyFilters() {
 	updateRoster(state.filteredData, rosterWidth);
 	updateTrend(true, trendWidth);
 	updateGraph(state.graphData);
+	if (state.activeView === "timeline") updateTimeline();
 }
 
 // ─────────────────────────────────────────────
@@ -839,17 +928,12 @@ function initialize(rawRoster, rawLogs) {
 	state.logData = rawLogs.map(log => ({
 		...log,
 		ID:     Number(log.ID),
-		Season: Number(log.Season)
+		Season: Number(log.Season),
+		Day:    log.Day && Number.isFinite(Number(log.Day)) ? Number(log.Day) : null
 	}));
+	state.timelineScopes = getTimelineScopes(state.allData, state.logData);
 
-	// Populate event dropdown
-	const events = Array.from(new Set(state.allData.map(p => p.Event))).sort(d3.ascending);
-	eventFilter.selectAll("option.event-option")
-		.data(events)
-		.join("option")
-		.attr("class", "event-option")
-		.attr("value", e => e)
-		.text(e => e);
+	updateEventOptions();
 
 	d3.selectAll(".view-tab").on("click", function() {
 		setActiveView(this.dataset.view);
@@ -858,6 +942,10 @@ function initialize(rawRoster, rawLogs) {
 	// Filter controls
 	eventFilter.on("change", event => {
 		state.event = event.target.value;
+		if (state.activeView === "timeline") {
+			const firstReady = state.timelineScopes.find(scope => scope.event === state.event && scope.ready);
+			state.season = firstReady?.season || "all";
+		}
 		updateSeasonOptions();
 		applyFilters();
 	});
@@ -874,9 +962,14 @@ function initialize(rawRoster, rawLogs) {
 		resetButton.classed("is-pressed", true);
 		resetFeedbackTimer = window.setTimeout(() => resetButton.classed("is-pressed", false), 60);
 
-		state.event  = "all";
-		state.season = "all";
-		eventFilter.property("value", "all");
+		if (state.activeView === "timeline") {
+			state.event = "Nexus Games";
+			state.season = 1;
+		} else {
+			state.event = "all";
+			state.season = "all";
+		}
+		updateEventOptions();
 		updateSeasonOptions();
 		applyFilters();
 	});
@@ -889,9 +982,11 @@ function initialize(rawRoster, rawLogs) {
 			updateRoster(state.filteredData, rosterSvg.node().clientWidth || 680, false);
 			updateTrend(false, trendSvg.node().clientWidth || 1000);
 			if (state.activeView === "graph") resizeGraph();
+			if (state.activeView === "timeline") timelineController?.resize();
 		}, 100);
 	});
 
+	updateEventOptions();
 	updateSeasonOptions();
 	applyFilters();
 	setActiveView(state.activeView);

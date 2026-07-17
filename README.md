@@ -12,6 +12,16 @@ Static D3 dashboard containing data visualizations of Nexus Events.
 
 Camera movement changes only a WebGL uniform. Dense graphs use deterministic label levels of detail while always retaining the focused node and its neighbors.
 
+## Timeline architecture
+
+- `timeline-model.js` classifies complete event-seasons and derives contestant lifelines, semantic event markers, vote tallies, and day-level turning points.
+- `timeline-controller.js` renders a fixed contestant rail beside a horizontally scrollable D3 swimlane timeline and owns pointer selection, day scrubbing, and playback.
+- `app.js` applies Timeline-only filter rules while preserving the existing broad filters in Graph and Analytics.
+
+A season is available in Timeline only when it has at least one log and every log has a numeric day. Incomplete seasons remain visible as disabled options; their chronology is never inferred.
+
+Games timelines distinguish kills, assists, deaths, arena hazards, eliminations, and the winner. House timelines distinguish HOH and POV wins, nominations, vetoes, vote tallies, evictions, jury votes, exceptional incidents, and the winner. The story rail summarizes high-impact days from those records.
+
 ## Relationship types
 
 Built-in record definitions live in `GraphModel.EVENT_TYPES`. Each edge definition supplies a semantic style, direction, and optional source/target metrics. Unknown targeted records remain visible through the generic `relationship` style instead of being discarded.
@@ -22,5 +32,5 @@ New event definitions can be passed to `deriveGraphData`, and new visual styles 
 
 ```sh
 node --test tests/*.test.js
-for file in app.js graph-model.js graph-renderer.js graph-controller.js graph-layout-worker.js; do node --check "$file"; done
+for file in app.js graph-model.js graph-renderer.js graph-controller.js graph-layout-worker.js timeline-model.js timeline-controller.js; do node --check "$file"; done
 ```

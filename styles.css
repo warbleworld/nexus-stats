@@ -7,6 +7,14 @@
 	--male: #2b6cb0;
 	--female: #e45d74;
 	--other: #e4a72c;
+	--kill: #b53a4d;
+	--assist: #287f86;
+	--hazard: #80611f;
+	--hoh: #2f6f9f;
+	--pov: #d4941f;
+	--nomination: #9f5261;
+	--veto: #27866e;
+	--jury: #755a9b;
 	--shadow: 0 18px 50px rgba(45, 54, 50, 0.08);
 }
 
@@ -273,6 +281,488 @@ select:disabled {
 
 .view-panel[hidden] {
 	display: none;
+}
+
+/* ── Season timeline ── */
+
+.timeline-panel {
+	margin-top: 18px;
+	border: 1px solid var(--line);
+	background: rgba(255, 255, 255, 0.68);
+	box-shadow: var(--shadow);
+}
+
+.timeline-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 24px;
+	padding: 24px;
+	border-bottom: 1px solid var(--line);
+}
+
+.timeline-summary {
+	max-width: 520px;
+	margin: 3px 0 0;
+	color: var(--muted);
+	font-family: "DM Mono", monospace;
+	font-size: 10px;
+	line-height: 1.6;
+	text-align: right;
+	text-transform: uppercase;
+}
+
+.timeline-toolbar {
+	display: grid;
+	grid-template-columns: auto minmax(240px, 1fr);
+	align-items: center;
+	gap: 20px;
+	padding: 14px 18px;
+	border-bottom: 1px solid var(--line);
+	background: rgba(244, 241, 234, 0.62);
+}
+
+.timeline-playback {
+	display: flex;
+	gap: 6px;
+}
+
+.timeline-icon-button {
+	display: inline-grid;
+	width: 38px;
+	height: 38px;
+	place-items: center;
+	border: 1px solid var(--line);
+	border-radius: 0;
+	color: var(--ink);
+	background: rgba(255, 255, 255, 0.9);
+	cursor: pointer;
+}
+
+.timeline-icon-button.is-primary {
+	color: var(--paper);
+	background: var(--ink);
+}
+
+.timeline-icon-button:disabled {
+	color: #9fa6a4;
+	background: rgba(255, 255, 255, 0.42);
+	cursor: default;
+}
+
+.timeline-icon-button svg {
+	width: 17px;
+	height: 17px;
+	fill: none;
+	stroke: currentColor;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-width: 2;
+}
+
+.timeline-icon-button .timeline-play-icon {
+	fill: currentColor;
+	stroke: none;
+}
+
+.timeline-pause-icon,
+.timeline-icon-button[data-state="playing"] .timeline-play-icon {
+	display: none;
+}
+
+.timeline-icon-button[data-state="playing"] .timeline-pause-icon {
+	display: block;
+}
+
+.timeline-scrubber {
+	display: grid;
+	grid-template-columns: 110px minmax(120px, 1fr);
+	align-items: center;
+	gap: 14px;
+}
+
+.timeline-scrubber label {
+	color: var(--ink);
+	font-family: "DM Mono", monospace;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+
+.timeline-scrubber input {
+	width: 100%;
+	accent-color: var(--ink);
+	cursor: pointer;
+}
+
+.timeline-story-rail {
+	display: flex;
+	min-height: 64px;
+	overflow-x: auto;
+	border-bottom: 1px solid var(--line);
+	background: rgba(255, 255, 255, 0.42);
+	scrollbar-width: thin;
+}
+
+.timeline-story {
+	display: grid;
+	min-width: 154px;
+	align-content: center;
+	gap: 4px;
+	border: 0;
+	border-right: 1px solid var(--line);
+	border-radius: 0;
+	padding: 11px 14px;
+	color: var(--muted);
+	background: transparent;
+	cursor: pointer;
+	text-align: left;
+	transition: color 160ms ease, background 160ms ease, opacity 160ms ease;
+}
+
+.timeline-story.is-major {
+	box-shadow: inset 3px 0 var(--kill);
+}
+
+.timeline-story.is-current {
+	color: var(--ink);
+	background: rgba(228, 167, 44, 0.12);
+}
+
+.timeline-story.is-future {
+	opacity: 0.35;
+}
+
+.timeline-story-day {
+	font-family: "DM Mono", monospace;
+	font-size: 8px;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+
+.timeline-story-title {
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1.25;
+}
+
+.timeline-board {
+	display: grid;
+	grid-template-columns: 224px minmax(0, 1fr);
+	max-height: min(72vh, 790px);
+	overflow-y: auto;
+	background:
+		linear-gradient(rgba(23, 33, 31, 0.025) 1px, transparent 1px),
+		rgba(244, 241, 234, 0.3);
+	background-size: 100% 58px;
+}
+
+.timeline-labels-wrap {
+	position: sticky;
+	left: 0;
+	z-index: 4;
+	overflow: hidden;
+	border-right: 1px solid var(--line);
+	background: rgba(249, 247, 242, 0.97);
+}
+
+.timeline-scroll {
+	min-width: 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+	overscroll-behavior-x: contain;
+	scrollbar-width: thin;
+}
+
+#timeline-labels,
+#timeline-chart {
+	display: block;
+}
+
+#timeline-labels {
+	width: 100%;
+}
+
+.timeline-label {
+	cursor: pointer;
+	transition: opacity 180ms ease;
+}
+
+.timeline-label rect {
+	fill: transparent;
+	stroke: rgba(23, 33, 31, 0.07);
+	stroke-width: 1px;
+}
+
+.timeline-label:hover rect,
+.timeline-label.is-selected rect {
+	fill: rgba(228, 167, 44, 0.11);
+}
+
+.timeline-label-name {
+	fill: var(--ink);
+	font-size: 11px;
+	font-weight: 750;
+}
+
+.timeline-label-meta {
+	fill: var(--muted);
+	font-family: "DM Mono", monospace;
+	font-size: 8px;
+	text-transform: uppercase;
+}
+
+.timeline-label-dot.is-female { fill: var(--female); }
+.timeline-label-dot.is-male { fill: var(--male); }
+.timeline-label-dot.is-other { fill: var(--other); }
+
+.timeline-label-rule {
+	stroke: var(--line);
+}
+
+.timeline-day rect {
+	fill: rgba(255, 255, 255, 0.16);
+}
+
+.timeline-day:nth-child(even) rect {
+	fill: rgba(23, 33, 31, 0.025);
+}
+
+.timeline-day line {
+	stroke: rgba(23, 33, 31, 0.1);
+	stroke-dasharray: 2 5;
+}
+
+.timeline-day text {
+	fill: var(--muted);
+	font-family: "DM Mono", monospace;
+	font-size: 8px;
+}
+
+.timeline-lane,
+.timeline-marker,
+.timeline-label {
+	transition: opacity 180ms ease;
+}
+
+.timeline-lane-base {
+	stroke: rgba(23, 33, 31, 0.065);
+}
+
+.timeline-lifeline {
+	stroke: rgba(23, 33, 31, 0.5);
+	stroke-linecap: round;
+	stroke-width: 2;
+}
+
+.timeline-lifeline.is-winner {
+	stroke: var(--other);
+	stroke-width: 3;
+}
+
+.timeline-exit {
+	fill: var(--panel);
+	stroke: var(--kill);
+	stroke-width: 2;
+}
+
+.timeline-marker {
+	cursor: pointer;
+	transition: opacity 180ms ease, filter 180ms ease;
+}
+
+.timeline-marker path {
+	fill: var(--ink);
+	stroke: white;
+	stroke-width: 1.5;
+	paint-order: stroke;
+}
+
+.timeline-marker.is-kill path,
+.timeline-marker.is-death path,
+.timeline-marker.is-eviction path { fill: var(--kill); }
+.timeline-marker.is-assist path { fill: var(--assist); }
+.timeline-marker.is-hazard path { fill: var(--hazard); }
+.timeline-marker.is-hoh path { fill: var(--hoh); }
+.timeline-marker.is-pov path,
+.timeline-marker.is-winner path { fill: var(--pov); }
+.timeline-marker.is-nomination path {
+	fill: white;
+	stroke: var(--nomination);
+	stroke-width: 3;
+}
+.timeline-marker.is-veto path { fill: var(--veto); }
+.timeline-marker.is-vote path { fill: #64706d; }
+.timeline-marker.is-jury path { fill: var(--jury); }
+
+.timeline-marker.is-selected,
+.timeline-marker:hover {
+	filter: drop-shadow(0 2px 5px rgba(23, 33, 31, 0.35));
+}
+
+.timeline-marker.is-current:not(.is-future) path {
+	animation: timeline-pulse 750ms ease-out;
+}
+
+.timeline-marker.is-future,
+.timeline-beat.is-future {
+	opacity: 0.12;
+	pointer-events: none;
+}
+
+.timeline-lane.is-dimmed,
+.timeline-marker.is-dimmed,
+.timeline-label.is-dimmed {
+	opacity: 0.18;
+}
+
+.timeline-future-shade {
+	fill: rgba(244, 241, 234, 0.66);
+	pointer-events: none;
+}
+
+.timeline-current-day {
+	stroke: var(--ink);
+	stroke-width: 1.5;
+	pointer-events: none;
+}
+
+.timeline-beat {
+	cursor: pointer;
+	transition: opacity 180ms ease;
+}
+
+.timeline-beat circle:first-child {
+	fill: var(--paper);
+	stroke: var(--muted);
+	stroke-width: 1.5;
+}
+
+.timeline-beat.is-major circle:first-child {
+	stroke: var(--kill);
+	stroke-width: 2.5;
+}
+
+.timeline-beat-core {
+	fill: var(--ink);
+}
+
+.timeline-relationship {
+	fill: none;
+	stroke: var(--ink);
+	stroke-width: 1.6;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.timeline-relationship.is-assist,
+.timeline-relationship.is-veto { stroke-dasharray: 4 3; }
+.timeline-relationship.is-assist { stroke: var(--assist); }
+.timeline-relationship.is-nomination { stroke: var(--nomination); }
+.timeline-relationship.is-veto { stroke: var(--veto); }
+.timeline-relationship.is-visible { opacity: 0.82; }
+
+.timeline-footer {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(360px, 0.82fr);
+	border-top: 1px solid var(--line);
+}
+
+.timeline-legend {
+	display: flex;
+	align-content: center;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 11px 18px;
+	padding: 18px 24px;
+}
+
+.timeline-legend-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	color: var(--muted);
+	font-family: "DM Mono", monospace;
+	font-size: 9px;
+	text-transform: uppercase;
+}
+
+.timeline-legend-item b {
+	font-weight: 500;
+}
+
+.timeline-legend-marker {
+	display: inline-block;
+	width: 9px;
+	height: 9px;
+	background: var(--ink);
+	transform: rotate(45deg);
+}
+
+.timeline-legend-marker.is-assist,
+.timeline-legend-marker.is-vote,
+.timeline-legend-marker.is-nomination {
+	border-radius: 50%;
+	transform: none;
+}
+
+.timeline-legend-marker.is-assist { background: var(--assist); }
+.timeline-legend-marker.is-death,
+.timeline-legend-marker.is-eviction { background: var(--kill); }
+.timeline-legend-marker.is-hazard {
+	background: var(--hazard);
+	clip-path: polygon(50% 0, 100% 100%, 0 100%);
+	transform: none;
+}
+.timeline-legend-marker.is-hoh { background: var(--hoh); }
+.timeline-legend-marker.is-pov,
+.timeline-legend-marker.is-winner { background: var(--pov); }
+.timeline-legend-marker.is-nomination {
+	border: 2px solid var(--nomination);
+	background: white;
+}
+.timeline-legend-marker.is-veto { background: var(--veto); }
+.timeline-legend-marker.is-vote { background: #64706d; }
+.timeline-legend-marker.is-jury { background: var(--jury); }
+
+.timeline-detail {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 18px;
+	min-height: 86px;
+	padding: 18px 24px;
+	border-left: 1px solid var(--line);
+	background: rgba(255, 255, 255, 0.5);
+}
+
+.timeline-detail-name {
+	overflow: hidden;
+	font-size: 16px;
+	font-weight: 750;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.timeline-detail-source,
+.timeline-detail-meta {
+	margin-top: 5px;
+	color: var(--muted);
+	font-family: "DM Mono", monospace;
+	font-size: 9px;
+	line-height: 1.5;
+	text-transform: uppercase;
+}
+
+.timeline-detail-meta {
+	min-width: 110px;
+	margin-top: 0;
+	text-align: right;
+}
+
+@keyframes timeline-pulse {
+	0% { stroke-width: 6; }
+	100% { stroke-width: 1.5; }
 }
 
 /* ── Elimination graph ── */
@@ -783,6 +1273,15 @@ h2 {
 		border-top: 1px solid var(--line);
 		border-left: 0;
 	}
+
+	.timeline-footer {
+		grid-template-columns: 1fr;
+	}
+
+	.timeline-detail {
+		border-top: 1px solid var(--line);
+		border-left: 0;
+	}
 }
 
 @media (max-width: 680px) {
@@ -818,6 +1317,52 @@ h2 {
 
 	.view-tabs {
 		margin-top: 22px;
+	}
+
+	.timeline-header {
+		display: grid;
+		padding: 20px 18px;
+	}
+
+	.timeline-summary {
+		text-align: left;
+	}
+
+	.timeline-toolbar {
+		grid-template-columns: 1fr;
+		gap: 12px;
+	}
+
+	.timeline-playback {
+		justify-content: center;
+	}
+
+	.timeline-scrubber {
+		grid-template-columns: 92px minmax(100px, 1fr);
+	}
+
+	.timeline-board {
+		grid-template-columns: 184px minmax(0, 1fr);
+		max-height: 68vh;
+	}
+
+	.timeline-labels-wrap {
+		width: 184px;
+	}
+
+	.timeline-legend {
+		gap: 10px 14px;
+		padding: 16px 18px;
+	}
+
+	.timeline-detail {
+		grid-template-columns: 1fr;
+		padding: 16px 18px;
+	}
+
+	.timeline-detail-meta {
+		min-width: 0;
+		text-align: left;
 	}
 
 	.graph-header {
