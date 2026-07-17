@@ -1,0 +1,225 @@
+ID,Event,Season,Day,Source,Type,Target
+1,Nexus Games,1,1,Chidori Yoshino,Death,
+2,Nexus Games,1,1,Junah,Kill,Shohei Yakumo
+3,Nexus Games,1,1,Arena Hazard,Kill,Xion
+4,Nexus Games,1,2,The Courier,Kill,Ringo
+5,Nexus Games,1,2,The Courier,Kill,Junah
+6,Nexus Games,1,3,Eivor Varinsdottir,Kill,The Courier
+7,Nexus Games,1,4,Ann Takamaki,Kill,Beam
+8,Nexus Games,1,4,Wakana Gojo,Kill Assist,Beam
+9,Nexus Games,1,4,Eivor Varinsdottir,Kill,Ann Takamaki
+10,Nexus Games,1,4,Toph Beifong,Kill,Eivor Varinsdottir
+11,Nexus Games,1,4,Wakana Gojo,Kill Assist,Eivor Varinsdottir
+12,Nexus Games,1,4,Marie,Kill Assist,Eivor Varinsdottir
+13,Nexus Games,1,4,Arena Hazard,Kill,Marie
+14,Nexus Games,1,4,Toph Beifong,Death,
+15,Nexus Games,2,1,Jinx,Death,
+16,Nexus Games,2,2,Strahd von Zarovich,Kill Assist,Jinx
+17,Nexus Games,2,,Arena Hazard,Kill,Tohru Adachi
+18,Nexus Games,2,,Ichiro Dazai,Kill,Big Smoke
+19,Nexus Games,2,,Arena Hazard,Kill,Alex Louis Armstrong
+20,Nexus Games,2,,Kazuma Kiryu,Kill,Strahd von Zarovich
+21,Nexus Games,2,,Sasha Braus,Kill Assist,Strahd von Zarovich
+22,Nexus Games,2,,Fern,Kill Assist,Strahd von Zarovich
+23,Nexus Games,2,,Anya Forger,Kill Assist,Strahd von Zarovich
+24,Nexus Games,2,,Solid Snake,Kill Assist,Strahd von Zarovich
+25,Nexus Games,2,,Solid Snake,Death,
+26,Nexus Games,2,,Ichiro Dazai,Kill,Sasha Braus
+27,Nexus Games,2,,Kazuma Kiryu,Kill,Esdeath
+28,Nexus Games,2,,Kazuma Kiryu,Death,
+29,Nexus Games,2,,Fern,Kill,Ichiro Dazai
+30,Nexus Games,3,1,Mereoleona Vermillion,Kill,Tanya von Degurechaff
+31,Nexus Games,3,2,Yugi Mutou / Pharaoh Atem / Yami Yugi,Kill,Seryu Ubiquitous
+32,Nexus Games,3,2,Nanashi,Kill,Shou Tucker
+33,Nexus Games,3,2,Mereoleona Vermillion,Kill,Nanashi
+34,Nexus Games,3,3,Übel,Kill,Dandy
+35,Nexus Games,3,3,Sans,Death,
+36,Nexus Games,3,3,Übel,Kill,Takumi Fujiwara
+37,Nexus Games,3,3,Johan Liebert,Death,
+38,Nexus Games,3,3,Yugi Mutou / Pharaoh Atem / Yami Yugi,Kill Assist,Johan Liebert
+39,Nexus Games,3,4,Übel,Kill,Yugi Mutou / Pharaoh Atem / Yami Yugi
+40,Nexus Games,3,4,Erza Scarlet,Kill,Mereoleona Vermillion
+41,Nexus Games,3,4,Mereoleona Vermillion,Kill,Erza Scarlet
+42,Nexus Games,4,1,Master Chief,Kill,Kenny McCormick
+43,Nexus Games,4,1,Master Chief,Kill,Roy Batty
+44,Nexus Games,4,2,Master Chief,Kill,The Martyr
+45,Nexus Games,4,2,Judge Holden,Kill,Arcane Trickster Kenku (Ken-Kun)
+46,Nexus Games,4,2,Master Chief,Kill,Shang Tsung
+47,Nexus Games,4,3,Judge Holden,Kill,Kenny McCormick
+48,Nexus Games,4,,Noi,Kill,Judge Holden
+49,Nexus Games,4,,Yuno Gasai,Kill Assist,Judge Holden
+50,Nexus Games,4,,The Landlady of Pigsty Alley,Kill Assist,Judge Holden
+51,Nexus Games,4,,Maki Oze,Kill Assist,Judge Holden
+52,Nexus Games,4,,Arena Hazard,Kill,Kenny McCormick
+53,Nexus Games,4,,Yuno Gasai,Kill,Master Chief
+54,Nexus Games,4,,Yuno Gasai,Kill,Maki Oze
+55,Nexus Games,4,,Yuno Gasai,Kill,Larry David
+56,Nexus Games,4,,Yuno Gasai,Kill,Noi
+57,Nexus Games,4,,The Landlady of Pigsty Alley,Kill,Yuno Gasai
+58,Nexus Games,5,,The Predator,Kill,Sister Ivry
+59,Nexus Games,5,,Sweet Tooth,Death,
+60,Nexus Games,5,,Iskandar,Kill Assist,Sweet Tooth
+61,Nexus Games,5,,Arena Hazard,Kill,Kafka Hibino
+62,Nexus Games,5,,Max Rockatansky,Death,
+63,Nexus Games,5,,Rin Kurenai,Kill Assist,Max Rockatansky
+64,Nexus Games,5,,Senator Armstrong,Kill,The Predator
+65,Nexus Games,5,,Kobeni Higashiyama,Kill,Senator Armstrong
+66,Nexus Games,5,,Arena Hazard,Kill,Iskandar
+67,Nexus Games,5,,Rin Kurenai,Kill Assist,Iskandar
+68,Nexus Games,5,,Arena Hazard,Kill,Kobeni Higashiyama
+69,Nexus Games,5,,Rin Kurenai,Kill Assist,Kobeni Higashiyama
+70,Nexus Games,5,,Arena Hazard,Kill,Avatar Kyoshi
+71,Nexus House,1,2,Haruhi Suzumiya,Win,HOH Comp
+72,Nexus House,1,2,Kokichi Oma,Play,HOH Comp
+73,Nexus House,1,2,Tatsu,Play,HOH Comp
+74,Nexus House,1,2,Abaddon the Despoiler,Play,HOH Comp
+75,Nexus House,1,2,Aqua,Play,HOH Comp
+76,Nexus House,1,2,Eikichi Onizuka,Play,HOH Comp
+77,Nexus House,1,2,Gold Ship,Play,HOH Comp
+78,Nexus House,1,2,Bojack Horseman,Play,HOH Comp
+79,Nexus House,1,2,Rias Gremory,Play,HOH Comp
+80,Nexus House,1,2,Lucy Heartfilia,Play,HOH Comp
+81,Nexus House,1,3,Haruhi Suzumiya,Nominate,Rias Gremory
+82,Nexus House,1,3,Haruhi Suzumiya,Nominate,Eikichi Onizuka
+83,Nexus House,1,4,Haruhi Suzumiya,Play,POV Comp
+84,Nexus House,1,4,Kokichi Oma,Not Picked,POV Comp
+85,Nexus House,1,4,Tatsu,Not Picked,POV Comp
+86,Nexus House,1,4,Abaddon the Despoiler,Win,POV Comp
+87,Nexus House,1,4,Aqua,Play,POV Comp
+88,Nexus House,1,4,Eikichi Onizuka,Play,POV Comp
+89,Nexus House,1,4,Gold Ship,Not Picked,POV Comp
+90,Nexus House,1,4,Bojack Horseman,Not Picked,POV Comp
+91,Nexus House,1,4,Rias Gremory,Play,POV Comp
+92,Nexus House,1,4,Lucy Heartfilia,Play,POV Comp
+93,Nexus House,1,5,Abaddon the Despoiler,Veto,Eikichi Onizuka
+94,Nexus House,1,5,Haruhi Suzumiya,Nominate,Tatsu
+95,Nexus House,1,7,Aqua,Vote,Tatsu
+96,Nexus House,1,7,Eikichi Onizuka,Vote,Tatsu
+97,Nexus House,1,7,Lucy Heartfilia,Vote,Rias Gremory
+98,Nexus House,1,7,Bojack Horseman,Vote,Rias Gremory
+99,Nexus House,1,7,Kokichi Oma,Vote,Rias Gremory
+100,Nexus House,1,7,Gold Ship,Vote,Rias Gremory
+101,Nexus House,1,7,Abaddon the Despoiler,Vote,Rias Gremory
+102,Nexus House,1,7,Rias Gremory,Evicted,
+103,Nexus House,1,8,Haruhi Suzumiya,Not Eligible,HOH Comp
+104,Nexus House,1,8,Kokichi Oma,Play,HOH Comp
+105,Nexus House,1,8,Tatsu,Win,HOH Comp
+106,Nexus House,1,8,Abaddon the Despoiler,Play,HOH Comp
+107,Nexus House,1,8,Aqua,Play,HOH Comp
+108,Nexus House,1,8,Eikichi Onizuka,Play,HOH Comp
+109,Nexus House,1,8,Gold Ship,Play,HOH Comp
+110,Nexus House,1,8,Bojack Horseman,Play,HOH Comp
+111,Nexus House,1,8,Lucy Heartfilia,Play,HOH Comp
+112,Nexus House,1,9,Tatsu,Nominate,Abaddon the Despoiler
+113,Nexus House,1,9,Tatsu,Nominate,Kokichi Oma
+114,Nexus House,1,9,Tatsu,Nominate,Aqua
+115,Nexus House,1,10,Haruhi Suzumiya,Not Picked,POV Comp
+116,Nexus House,1,10,Kokichi Oma,Play,POV Comp
+117,Nexus House,1,10,Tatsu,Play,POV Comp
+118,Nexus House,1,10,Abaddon the Despoiler,Play,POV Comp
+119,Nexus House,1,10,Aqua,Play,POV Comp
+120,Nexus House,1,10,Eikichi Onizuka,Play,POV Comp
+121,Nexus House,1,10,Gold Ship,Play,POV Comp
+122,Nexus House,1,10,Bojack Horseman,Not Picked,POV Comp
+123,Nexus House,1,10,Lucy Heartfilia,Win,POV Comp
+124,Nexus House,1,11,Veto,Not Used,
+125,Nexus House,1,14,Lucy Heartfilia,Vote,Abaddon the Despoiler
+126,Nexus House,1,14,Eikichi Onizuka,Vote,Aqua
+127,Nexus House,1,14,Bojack Horseman,Vote,Aqua
+128,Nexus House,1,14,Kokichi Oma,Vote,Aqua
+129,Nexus House,1,14,Gold Ship,Vote,Abaddon the Despoiler
+130,Nexus House,1,14,Haruhi Suzumiya,Vote,Aqua
+131,Nexus House,1,14,Aqua,Evicted,
+132,Nexus House,1,15,Haruhi Suzumiya,Play,HOH Comp
+133,Nexus House,1,15,Kokichi Oma,Play,HOH Comp
+134,Nexus House,1,15,Tatsu,Not Eligible,HOH Comp
+135,Nexus House,1,15,Abaddon the Despoiler,Play,HOH Comp
+136,Nexus House,1,15,Eikichi Onizuka,Play,HOH Comp
+137,Nexus House,1,15,Gold Ship,Play,HOH Comp
+138,Nexus House,1,15,Bojack Horseman,Play,HOH Comp
+139,Nexus House,1,15,Lucy Heartfilia,Win,HOH Comp
+140,Nexus House,1,16,Lucy Heartfilia,Nominate,Kokichi Oma
+141,Nexus House,1,16,Lucy Heartfilia,Nominate,Abaddon the Despoiler
+142,Nexus House,1,17,Haruhi Suzumiya,Win,POV Comp
+143,Nexus House,1,17,Kokichi Oma,Play,POV Comp
+144,Nexus House,1,17,Tatsu,Play,POV Comp
+145,Nexus House,1,17,Abaddon the Despoiler,Play,POV Comp
+146,Nexus House,1,17,Eikichi Onizuka,Not Picked,POV Comp
+147,Nexus House,1,17,Gold Ship,Play,POV Comp
+148,Nexus House,1,17,Bojack Horseman,Not Picked,POV Comp
+149,Nexus House,1,17,Lucy Heartfilia,Play,POV Comp
+150,Nexus House,1,17,Haruhi Suzumiya,Veto,Abaddon the Despoiler
+151,Nexus House,1,17,Lucy Heartfilia,Nominate,Tatsu
+152,Nexus House,1,18,Abaddon the Despoiler,Kill,Haruhi Suzumiya
+153,Nexus House,1,18,Abaddon the Despoiler,Evicted,
+154,Nexus House,1,21,Gold Ship,Kill,Bojack Horseman
+155,Nexus House,1,21,Gold Ship,Death,
+156,Nexus House,1,21,Haruhi Suzumiya,Vote,Tatsu
+157,Nexus House,1,21,Eikichi Onizuka,Vote,Kokichi Oma
+158,Nexus House,1,21,Gold Ship,Vote,Tatsu
+159,Nexus House,1,21,Bojack Horseman,Vote,Kokichi Oma
+160,Nexus House,1,21,Lucy Heartfilia,Vote,Kokichi Oma
+161,Nexus House,1,21,Kokichi Oma,Evicted,
+162,Nexus House,1,22,Haruhi Suzumiya,Play,HOH Comp
+163,Nexus House,1,22,Tatsu,Play,HOH Comp
+164,Nexus House,1,22,Eikichi Onizuka,Play,HOH Comp
+165,Nexus House,1,22,Gold Ship,Win,HOH Comp
+166,Nexus House,1,22,Bojack Horseman,Play,HOH Comp
+167,Nexus House,1,22,Lucy Heartfilia,Not Eligible,HOH Comp
+168,Nexus House,1,23,Gold Ship,Nominate,Bojack Horseman
+169,Nexus House,1,23,Gold Ship,Nominate,Lucy Heartfilia
+170,Nexus House,1,24,Haruhi Suzumiya,Win,POV Comp
+171,Nexus House,1,24,Tatsu,Play,POV Comp
+172,Nexus House,1,24,Eikichi Onizuka,Play,POV Comp
+173,Nexus House,1,24,Gold Ship,Play,POV Comp
+174,Nexus House,1,24,Bojack Horseman,Play,POV Comp
+175,Nexus House,1,24,Lucy Heartfilia,Play,POV Comp
+176,Nexus House,1,25,Haruhi Suzumiya,Veto,Bojack Horseman
+177,Nexus House,1,25,Gold Ship,Nominate,Tatsu
+178,Nexus House,1,26,Haruhi Suzumiya,Vote,Tatsu
+179,Nexus House,1,26,Eikichi Onizuka,Vote,Lucy Heartfilia
+180,Nexus House,1,26,Bojack Horseman,Vote,Tatsu
+181,Nexus House,1,26,Tatsu,Evicted,
+182,Nexus House,1,27,Haruhi Suzumiya,Play,HOH Comp
+183,Nexus House,1,27,Eikichi Onizuka,Win,HOH Comp
+184,Nexus House,1,27,Gold Ship,Not Eligible,HOH Comp
+185,Nexus House,1,27,Bojack Horseman,Play,HOH Comp
+186,Nexus House,1,27,Lucy Heartfilia,Play,HOH Comp
+187,Nexus House,1,28,Eikichi Onizuka,Nominate,Bojack Horseman
+188,Nexus House,1,28,Eikichi Onizuka,Nominate,Haruhi Suzumiya
+189,Nexus House,1,29,Haruhi Suzumiya,Play,POV Comp
+190,Nexus House,1,29,Eikichi Onizuka,Play,POV Comp
+191,Nexus House,1,29,Gold Ship,Play,POV Comp
+192,Nexus House,1,29,Bojack Horseman,Win,POV Comp
+193,Nexus House,1,29,Lucy Heartfilia,Play,POV Comp
+194,Nexus House,1,29,Bojack Horseman,Veto,Bojack Horseman
+195,Nexus House,1,29,Eikichi Onizuka,Nominate,Gold Ship
+196,Nexus House,1,30,Lucy Heartfilia,Vote,Haruhi Suzumiya
+197,Nexus House,1,30,Bojack Horseman,Vote,Haruhi Suzumiya
+198,Nexus House,1,30,Haruhi Suzumiya,Evicted,
+199,Nexus House,1,31,Eikichi Onizuka,Play,HOH Comp
+200,Nexus House,1,31,Gold Ship,Play,HOH Comp
+201,Nexus House,1,31,Bojack Horseman,Win,HOH Comp
+202,Nexus House,1,31,Lucy Heartfilia,Play,HOH Comp
+203,Nexus House,1,32,Bojack Horseman,Nominate,Gold Ship
+204,Nexus House,1,32,Bojack Horseman,Nominate,Eikichi Onizuka
+205,Nexus House,1,32,Eikichi Onizuka,Play,POV Comp
+206,Nexus House,1,32,Gold Ship,Play,POV Comp
+207,Nexus House,1,32,Bojack Horseman,Play,POV Comp
+208,Nexus House,1,32,Lucy Heartfilia,Win,POV Comp
+209,Nexus House,1,33,Lucy Heartfilia,Veto,Gold Ship
+210,Nexus House,1,33,Eikichi Onizuka,Evicted,
+211,Nexus House,1,34,Gold Ship,Play,HOH Comp
+212,Nexus House,1,34,Bojack Horseman,Win,HOH Comp
+213,Nexus House,1,34,Lucy Heartfilia,Play,HOH Comp
+214,Nexus House,1,34,Bojack Horseman,Nominate,Gold Ship
+215,Nexus House,1,34,Gold Ship,Evicted,
+216,Nexus House,1,35,Haruhi Suzumiya,Jury Vote,Bojack Horseman
+217,Nexus House,1,35,Kokichi Oma,Jury Vote,Bojack Horseman
+218,Nexus House,1,35,Aqua,Jury Vote,Lucy Heartfilia
+219,Nexus House,1,35,Eikichi Onizuka,Jury Vote,Lucy Heartfilia
+220,Nexus House,1,35,Tatsu,Jury Vote,Lucy Heartfilia
+221,Nexus House,1,35,Abaddon the Despoiler,Jury Vote,Lucy Heartfilia
+222,Nexus House,1,35,Rias Gremory,Jury Vote,Bojack Horseman
+223,Nexus House,1,35,Gold Ship,Jury Vote,Lucy Heartfilia
+224,Nexus House,1,35,Bojack Horseman,Evicted,

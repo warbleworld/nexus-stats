@@ -87,8 +87,8 @@
 		});
 	}
 
-	function deriveGraphData(entrants, logs, eventTypes = EVENT_TYPES) {
-		const nodes = entrants.map(person => ({
+	function deriveGraphData(roster, logs, eventTypes = EVENT_TYPES) {
+		const nodes = roster.map(person => ({
 			id:           `entrant-${person.ID}`,
 			personId:     person.ID,
 			name:         person.Name,
@@ -147,6 +147,8 @@
 		};
 
 		logs.forEach(log => {
+            if (log.Event === "Nexus House") return;
+
 			const definition = eventTypes[log.Type] || (log.Target
 				? { kind: "edge", style: "relationship", direction: "forward" }
 				: { kind: "node", nodeMetric: "events" });

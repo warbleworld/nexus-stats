@@ -811,9 +811,9 @@ function updateTrend(animate = true, measuredWidth = trendSvg.node().clientWidth
 // Initialization & event wiring
 // ─────────────────────────────────────────────
 
-function initialize(rawEntrants, rawLogs) {
+function initialize(rawRoster, rawLogs) {
 	// Parse and normalize CSV rows
-	state.allData = rawEntrants.map(person => ({
+	state.allData = rawRoster.map(person => ({
 		...person,
 		ID:          Number(person.ID),
 		Season:      Number(person.Season),
@@ -887,10 +887,10 @@ function initialize(rawEntrants, rawLogs) {
 // ─────────────────────────────────────────────
 
 Promise.all([
-	d3.csv("csv/nexus-entrants.csv"),
-	d3.csv("csv/nexus-log.csv")
+	d3.csv("csv/nexus-roster.csv"),
+	d3.csv("csv/nexus-logs.csv")
 ])
-	.then(([entrants, logs]) => initialize(entrants, logs))
+	.then(([roster, logs]) => initialize(roster, logs))
 	.catch(error => {
 		console.error(error);
 		d3.select("#error-container").html(
